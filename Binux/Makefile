@@ -31,7 +31,7 @@ all: $(KERNEL)
 
 img: $(IMG)
 
-run: $(IMG) $(KERNEL)
+run: $(KERNEL) $(IMG)
 	qemu-system-$(ARCH) \
 		-kernel $(KERNEL) \
 		-drive format=raw,file=$(IMG) \
@@ -50,6 +50,8 @@ $(IMG): $(KERNEL) $(GRUB_CFG)
 	sudo cp $(KERNEL) $(IMG_DIR)/boot/kernel.bin
 	sudo cp $(GRUB_CFG) $(IMG_DIR)/boot/grub/grub.cfg
 
+	sudo umount $(IMG_DIR)
+
 $(KERNEL): $(LINKER_LD) $(DEPS)
 	$(CC) -o $@ $(FLAGS) -T $^
 
@@ -62,7 +64,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(C_FLAGS) -c $< -o $@
 
 clean:
-	@[ -d $(IMG_DIR) ] && sudo umount -q $(IMG_DIR)
+	@[ -d $(IMG_DIR) ] && sudo umount -q $(IMG_DIR) || true
 	@rm -rf build
 
 .PHONY: all img run test clean $(IMG) $(KERNEL)
