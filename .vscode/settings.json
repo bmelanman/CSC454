@@ -1,0 +1,9 @@
+{
+  "files.associations": {
+    "*.c": "c",
+    "*.h": "c",
+    "*.S": "riscv",
+    "*.s": "riscv",
+    "pr78051.C": "cpp"
+  }
+}
