@@ -38,8 +38,9 @@ lint:
       direct_configs:
         - checkmake.ini
   enabled:
+    - markdownlint@0.38.0
     - checkmake@SYSTEM
-    - checkov@3.1.46
+    - checkov@3.1.51
     - clang-tidy@16.0.3
     - clang-format@SYSTEM
     - git-diff-check
