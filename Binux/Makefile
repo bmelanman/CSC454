@@ -32,25 +32,28 @@ all: $(KERNEL)
 img: $(IMG)
 
 run: $(KERNEL) $(IMG)
-	qemu-system-$(ARCH) \
-		-kernel $(KERNEL) \
-		-drive format=raw,file=$(IMG) \
-		-nographic \
-		-append "root=/dev/sda console=ttyAMA0"
+	 printf "change vnc password\nroot\n" | qemu-system-$(ARCH) \
+		-vnc :0,password=on \
+		-monitor stdio \
+		-cdrom $(IMG) \
+		#-kernel $(KERNEL) \
+		#-drive format=raw,file=$(IMG) \
 
 test: run
 
 $(IMG): $(KERNEL) $(GRUB_CFG)	
-	dd if=/dev/zero of=$(IMG) bs=$(BLK_SIZE) count=$(IMG_SIZE_MB)
-	mkfs.fat -F32 -n $(DISK_LABEL) $(IMG)
-	#losetup -f -P $(IMG)
-	sudo mount --mkdir --target $(IMG_DIR) -o loop $(IMG) --verbose
+	@#dd if=/dev/zero of=$(IMG) bs=$(BLK_SIZE) count=$(IMG_SIZE_MB)
+	@#mkfs.fat -F32 -n $(DISK_LABEL) $(IMG)
+	@#losetup -f -P $(IMG)
+	@#sudo mount --mkdir --target $(IMG_DIR) -o loop $(IMG) --verbose
 
 	sudo mkdir -p $(IMG_DIR)/boot/grub/
 	sudo cp $(KERNEL) $(IMG_DIR)/boot/kernel.bin
 	sudo cp $(GRUB_CFG) $(IMG_DIR)/boot/grub/grub.cfg
 
-	sudo umount $(IMG_DIR)
+	grub-mkrescue -d /opt/grub-pc/i386-pc/ -o $(IMG) $(IMG_DIR)
+
+	@#sudo umount $(IMG_DIR)
 
 $(KERNEL): $(LINKER_LD) $(DEPS)
 	$(CC) -o $@ $(FLAGS) -T $^
