@@ -1,11 +1,11 @@
 # Created by bryc_wall on 12/29/2023
-TARGET 		:= Binux
+TARGET 		:= BinuxOS
 DISK_LABEL 	:= $(shell echo $(TARGET) | tr a-z A-Z)
 ARCH 		:= x86_64
 
 SRC_DIR     := src/arch/$(ARCH)
 BUILD_DIR	:= build/arch/$(ARCH)
-IMG_DIR		:= build/iso_files
+FS_MNT		:= build/rootfs
 
 LINKER_LD	:= $(wildcard $(SRC_DIR)/*.ld)
 GRUB_CFG	:= $(SRC_DIR)/grub.cfg
@@ -17,9 +17,11 @@ C_OBJ		:= $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(C_SRC))
 
 DEPS 		:= $(ASM_OBJ) $(C_OBJ)
 KERNEL 		:= build/kernel-$(TARGET).bin
-IMG 		:= build/os-$(TARGET).img
+IMG 		:= build/$(TARGET).img
+
 BLK_SIZE	:= 1M
-IMG_SIZE_MB	:= 512
+IMG_SIZE_MB	:= 1024
+BOOT_SIZE_MB:= 512
 
 CC = $(ARCH)-elf-gcc
 OBJCOPY = $(ARCH)-elf-objcopy
@@ -33,27 +35,47 @@ img: $(IMG)
 
 run: $(KERNEL) $(IMG)
 	 printf "change vnc password\nroot\n" | qemu-system-$(ARCH) \
-		-vnc :0,password=on \
 		-monitor stdio \
-		-cdrom $(IMG) \
+		-vnc :0,password=on \
+		-drive format=raw,file=$(IMG) \
 		#-kernel $(KERNEL) \
-		#-drive format=raw,file=$(IMG) \
+		#-cdrom $(IMG) \
 
 test: run
 
-$(IMG): $(KERNEL) $(GRUB_CFG)	
-	@#dd if=/dev/zero of=$(IMG) bs=$(BLK_SIZE) count=$(IMG_SIZE_MB)
-	@#mkfs.fat -F32 -n $(DISK_LABEL) $(IMG)
-	@#losetup -f -P $(IMG)
-	@#sudo mount --mkdir --target $(IMG_DIR) -o loop $(IMG) --verbose
+$(IMG): $(KERNEL) $(GRUB_CFG)
+	dd if=/dev/zero of=$(IMG) bs=$(BLK_SIZE) count=$(IMG_SIZE_MB)
+	parted --script $(IMG) \
+		mklabel gpt \
+		mkpart primary fat32 1 $(BOOT_SIZE_MB)M \
+		set 1 bios_grub on \
+		mkpart primary ext2 $(BOOT_SIZE_MB)M 100%
 
-	sudo mkdir -p $(IMG_DIR)/boot/grub/
-	sudo cp $(KERNEL) $(IMG_DIR)/boot/kernel.bin
-	sudo cp $(GRUB_CFG) $(IMG_DIR)/boot/grub/grub.cfg
+	losetup /dev/loop0 $(IMG)
+	kpartx -a /dev/loop0
+	mkfs.vfat -F 32 /dev/mapper/loop0p1
+	mkfs.ext2 /dev/mapper/loop0p2
 
-	grub-mkrescue -d /opt/grub-pc/i386-pc/ -o $(IMG) $(IMG_DIR)
+	mount --mkdir /dev/mapper/loop0p2 $(FS_MNT)
+	#mount --mkdir /dev/mapper/loop0p1 $(FS_MNT)/boot
 
-	@#sudo umount $(IMG_DIR)
+	mkdir -p $(FS_MNT)/boot/grub
+
+	grub-install \
+		--no-floppy \
+		--target=i386-pc \
+		--bootloader-id=GRUB \
+		--boot-directory=$(FS_MNT)/boot \
+		--directory=/opt/grub-pc/i386-pc/ \
+		--modules="normal part_msdos ext2 multiboot" \
+		/dev/loop0
+
+	cp $(KERNEL) $(FS_MNT)/boot/kernel.bin
+	cp $(GRUB_CFG) $(FS_MNT)/boot/grub/grub.cfg
+
+	umount -R $(FS_MNT)
+	kpartx -d /dev/loop0
+	losetup -d /dev/loop0
 
 $(KERNEL): $(LINKER_LD) $(DEPS)
 	$(CC) -o $@ $(FLAGS) -T $^
@@ -67,7 +89,9 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(C_FLAGS) -c $< -o $@
 
 clean:
-	@[ -d $(IMG_DIR) ] && sudo umount -q $(IMG_DIR) || true
-	@rm -rf build
+	@[ -d $(FS_MNT) ] && umount -q -R $(FS_MNT) || true
+	@kpartx -d /dev/loop0 || true
+	@losetup -d /dev/loop0 2>/dev/null || true
+	@rm -rf build || true
 
 .PHONY: all img run test clean $(IMG) $(KERNEL)
