@@ -14,12 +14,6 @@
 #include "printk.h"
 #include "util.h"
 
-/* Private Defines and Macros */
-
-/* Global Variables */
-
-/* Private Functions */
-
 /* Public Functions */
 int kernel_main( void )
 {
@@ -30,33 +24,6 @@ int kernel_main( void )
         printk( "This is printk() call #%d\n", i );
     }
 
-    // printk(
-    //     "-----------------------------------------\n"
-    //     "Testing MAX and MIN values...            \n"
-    //     "SHRT_MIN = %hd                           \n"
-    //     "SHRT_MAX = %hd                           \n"
-    //     "USHRT_MAX = %hu                          \n"
-    //     "INT_MIN = %d                             \n"
-    //     "INT_MAX = %d                             \n"
-    //     "UINT_MAX = %u                            \n"
-    //     "LONG_MIN = %ld                           \n"
-    //     "LONG_MAX = %ld                           \n"
-    //     "ULONG_MAX = %lu                          \n"
-    //     "LLONG_MIN = %qd                          \n"
-    //     "LLONG_MAX = %qd                          \n"
-    //     "ULLONG_MAX = %qu                         \n"
-    //     "-----------------------------------------\n"
-    //     "Testing strings, chars, and pointers...  \n"
-    //     "%s                                       \n"
-    //     "%c %c %c %c %c                           \n"
-    //     "%p                                       \n"
-    //     "-----------------------------------------\n"
-    //     "Done!                                    \n",
-    //     SHRT_MIN, SHRT_MAX, USHRT_MAX, INT_MIN, INT_MAX, UINT_MAX, LONG_MIN, LONG_MAX, ULONG_MAX,
-    //     LLONG_MIN, LLONG_MAX, ULLONG_MAX, "Hello, World!\n", 'p', 'o', 'o', 'p', '!',
-    //     &kernel_main
-    //);
-
     printk( "                                        \n" );
     printk( "Testing printk()...                     \n" );
     printk( "----------------------------------------\n" );
@@ -64,24 +31,24 @@ int kernel_main( void )
     printk( "                                        \n" );
     printk( "SHRT_MIN.......%hd                      \n", SHRT_MIN );
     printk( "SHRT_MAX.......%hd                      \n", SHRT_MAX );
-    printk( "USHRT_MAX......%hu                      \n", USHRT_MAX );
+    printk( "USHRT_MAX......%hu (0x%hx)              \n", USHRT_MAX, USHRT_MAX );
     printk( "                                        \n" );
     printk( "INT_MIN........%d                       \n", INT_MIN );
     printk( "INT_MAX........%d                       \n", INT_MAX );
-    printk( "UINT_MAX.......%u                       \n", UINT_MAX );
+    printk( "UINT_MAX.......%u (0x%x)                \n", UINT_MAX, UINT_MAX );
     printk( "                                        \n" );
     printk( "LONG_MIN.......%ld                      \n", LONG_MIN );
     printk( "LONG_MAX.......%ld                      \n", LONG_MAX );
-    printk( "ULONG_MAX......%lu                      \n", ULONG_MAX );
+    printk( "ULONG_MAX......%lu (0x%lx)              \n", ULONG_MAX, ULONG_MAX );
     printk( "                                        \n" );
-    printk( "LLONG_MIN......%qd                      \n", LLONG_MIN );
-    printk( "LLONG_MAX......%qd                      \n", LLONG_MAX );
-    printk( "ULLONG_MAX.....%qu                      \n", ULLONG_MAX );
+    printk( "LLONG_MIN......%lld                     \n", LLONG_MIN );
+    printk( "LLONG_MAX......%lld                     \n", LLONG_MAX );
+    printk( "ULLONG_MAX.....%llu (0x%llx)            \n", ULLONG_MAX, ULLONG_MAX );
     printk( "----------------------------------------\n" );
-    printk( "String: %s                              \n", "Hello, World!" );
-    printk( "Char: %c                                \n", 'B' );
-    printk( "Hex: %x                                 \n", 'B' );
-    printk( "Pointer: %p                             \n", &kernel_main );
+    printk( "String.........%s                       \n", "Hello, World!" );
+    printk( "Char...........%c                       \n", 'B' );
+    printk( "Hex............0x%X                     \n", 0xdeadbeef );
+    printk( "Pointer........%p                       \n", &kernel_main );
     printk( "----------------------------------------\n" );
     printk( "Done!                                   \n" );
 

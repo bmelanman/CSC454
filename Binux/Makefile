@@ -48,7 +48,7 @@ all: $(KERNEL)
 
 img: $(IMG)
 
-run: $(KERNEL) $(IMG)
+run: clean $(IMG)
 	printf "change vnc password\nroot\n" | qemu-system-$(ARCH) -s \
 		-monitor stdio \
 		-vnc :0,password=on \
@@ -103,6 +103,7 @@ count:
 	wc -l $(ASM_SRC) $(C_SRC) $(C_LIB)
 
 clean:
+	@bear -- make all &>/dev/null || true
 	@[ -d $(FS_MNT) ] && umount -q -R $(FS_MNT) || true
 	@losetup -d /dev/loop0 2>/dev/null || true
 	@losetup -d /dev/loop1 2>/dev/null || true

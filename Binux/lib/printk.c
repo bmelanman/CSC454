@@ -20,30 +20,38 @@
 
 /* Private Defines and Macros */
 
+#define uint   unsigned int
+#define llong  long long
+#define ullong unsigned llong
+
 typedef enum {
     LOWERCASE = 0U,
-    UPPERCASE = 32U  // 32 = 'a' - 'A'
+    UPPERCASE = 32U  // 'a' - 'A' = 32
 } char_case_t;
-
-/* Global Variables */
 
 /* Private Functions */
 
-void print_char( char c ) { VGA_display_char( c ); }
+#define print_specifier( sp ) \
+    do                        \
+    {                         \
+        print_char( '%' );    \
+        print_char( sp );     \
+    } while ( 0 )
 
-void print_str( char *s ) { VGA_display_str( s ); }
+#define print_char( c ) VGA_display_char( c )
+#define print_str( s )  VGA_display_str( s )
 
-void print_uint( unsigned int n )
+void print_llu( ullong n )
 {
     if ( n / 10 )
     {
-        print_uint( n / 10 );
+        print_llu( n / 10 );
     }
 
     VGA_display_char( (char)( ( n % 10 ) + '0' ) );
 }
 
-void print_int( int n )
+void print_ll( llong n )
 {
     if ( n < 0 )
     {
@@ -51,7 +59,7 @@ void print_int( int n )
         n = -n;
     }
 
-    print_uint( (unsigned int)n );
+    print_llu( (ullong)n );
 }
 
 void print_hex( uint64_t n, char_case_t char_case )
@@ -83,12 +91,46 @@ void print_oct( uint64_t n )
     VGA_display_char( (char)( ( n % 8 ) + '0' ) );
 }
 
+#define parse_int( sp, args )   parse_specifier( sp, args, int )
+#define parse_long( sp, args )  parse_specifier( sp, args, long )
+#define parse_llong( sp, args ) parse_specifier( sp, args, llong )
+
+#define parse_specifier( sp, args, type )                                                     \
+    do                                                                                        \
+    {                                                                                         \
+        switch ( sp )                                                                         \
+        {                                                                                     \
+            case 'd':                                                                         \
+            case 'i':                                                                         \
+                print_ll( (llong)va_arg( args, type ) );                                      \
+                break;                                                                        \
+                                                                                              \
+            case 'u':                                                                         \
+                print_llu( (ullong)va_arg( args, unsigned type ) ); /* NOLINT */              \
+                break;                                                                        \
+                                                                                              \
+            case 'x':                                                                         \
+                print_hex( (uint64_t)va_arg( args, unsigned type ), LOWERCASE ); /* NOLINT */ \
+                break;                                                                        \
+                                                                                              \
+            case 'X':                                                                         \
+                print_hex( (uint64_t)va_arg( args, unsigned type ), UPPERCASE ); /* NOLINT */ \
+                break;                                                                        \
+                                                                                              \
+            case 'o':                                                                         \
+                print_oct( (uint64_t)va_arg( args, unsigned type ) ); /* NOLINT */            \
+                break;                                                                        \
+                                                                                              \
+            default:                                                                          \
+                print_specifier( sp );                                                        \
+                break;                                                                        \
+        }                                                                                     \
+    } while ( 0 )
+
 /* Public Functions */
 
 __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
 {
-    // TODO: Must implement %h[dux] %l[dux] %(q/ll)[dux]
-
     va_list args;
     va_start( args, fmt );
 
@@ -105,32 +147,8 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
                         print_char( '%' );
                         break;
 
-                    case 'd':  // Integer
-                    case 'i':
-                        print_int( va_arg( args, int ) );
-                        break;
-
-                    case 'u':  // Unsigned Integer
-                        print_uint( va_arg( args, unsigned int ) );
-                        break;
-
                     case 'c':  // Character
-                        print_char( (char)va_arg( args, unsigned int ) );
-                        break;
-
-                    case 'x':  // Hexadecimal, Lowercase
-                        print_str( "0x" );
-                        print_hex( (uint64_t)va_arg( args, unsigned int ), LOWERCASE );
-                        break;
-
-                    case 'X':  // Hexadecimal, Uppercase
-                        print_str( "0x" );
-                        print_hex( (uint64_t)va_arg( args, unsigned int ), UPPERCASE );
-                        break;
-
-                    case 'o':  // Octal
-                        print_str( "0o" );
-                        print_oct( (uint64_t)va_arg( args, unsigned int ) );
+                        print_char( (char)va_arg( args, uint ) );
                         break;
 
                     case 's':  // String
@@ -142,40 +160,27 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
                         print_hex( (uint64_t)va_arg( args, void * ), LOWERCASE );
                         break;
 
-                    case 'h':  // Short
-                        switch ( fmt[i + 2] )
+                    case 'l':  // Long
+                        if ( fmt[i + 2] == 'l' )
                         {
-                            case 'd':
-                            case 'i':
-                                print_int( (int)va_arg( args, int ) );
-                                break;
-
-                            case 'u':
-                                print_uint( (uint64_t)va_arg( args, unsigned int ) );
-                                break;
-
-                            case 'x':
-                                print_str( "0x" );
-                                print_hex( (uint64_t)va_arg( args, unsigned int ), LOWERCASE );
-                                break;
-
-                            case 'X':
-                                print_str( "0x" );
-                                print_hex( (uint64_t)va_arg( args, unsigned int ), UPPERCASE );
-                                break;
-
-                            case 'o':
-                                print_str( "0o" );
-                                print_oct( (uint64_t)va_arg( args, unsigned int ) );
-                                break;
-
-                            default:
-                                print_char( '%' );
-                                print_char( 'h' );
-                                print_char( fmt[i + 2] );
-                                break;
+                            parse_llong( fmt[i + 3], args );
+                            i++;
                         }
+                        else
+                        {
+                            parse_long( fmt[i + 2], args );
+                        }
+                        i++;
+                        break;
 
+                    case 'h':  // Short
+                    case 'q':  // Long Long
+                        parse_llong( fmt[i + 2], args );
+                        i++;
+                        break;
+
+                    default:
+                        parse_int( fmt[i + 1], args );
                         i++;
                         break;
                 }
