@@ -30,8 +30,8 @@ KERNEL 		:= build/kernel-$(TARGET).bin
 IMG 		:= build/$(TARGET).img
 
 # Image parameters
+IMG_SIZE_MB	:= 64
 SECT_LEN	:= 512
-IMG_SECTORS	:= 1048576
 GRUB_LEN	:= 2048
 PART_OFFSET	:= $(shell echo $$(($(SECT_LEN) * $(GRUB_LEN))))
 
@@ -57,7 +57,7 @@ run: $(KERNEL) $(IMG)
 test: run
 
 $(IMG): $(KERNEL) $(GRUB_CFG)
-	dd if=/dev/zero of=$(IMG) bs=$(SECT_LEN) count=$(IMG_SECTORS)
+	dd if=/dev/zero of=$(IMG) bs=1M count=$(IMG_SIZE_MB)
 	parted --script $(IMG) \
 		mklabel msdos \
 		mkpart primary fat32 $(PART_OFFSET)B 100% \
@@ -69,16 +69,16 @@ $(IMG): $(KERNEL) $(GRUB_CFG)
 
 	mount --mkdir /dev/loop1 $(FS_MNT)
 
-	grub-install \
-		--no-floppy \
-		--root-directory=/boot \
-		--directory=/opt/grub-pc/i386-pc/ \
-		--modules="normal part_msdos fat ext2 multiboot" \
-		/dev/loop0
-
 	mkdir -p $(FS_MNT)/boot/grub
 	cp $(KERNEL) $(FS_MNT)/boot/kernel.bin
 	cp $(GRUB_CFG) $(FS_MNT)/boot/grub/grub.cfg
+
+	grub-install \
+		--no-floppy \
+		--boot-directory=$(FS_MNT)/boot \
+		--directory=/opt/grub-pc/i386-pc/ \
+		--modules="normal part_msdos fat ext2 multiboot" \
+		/dev/loop0
 
 	umount $(FS_MNT)
 	losetup -d /dev/loop0
