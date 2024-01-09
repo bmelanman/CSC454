@@ -1,0 +1,53 @@
+[
+  {
+    "arguments": [
+      "/opt/x86_64-cross/bin/x86_64-elf-gcc",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-ffreestanding",
+      "-Ilib",
+      "-c",
+      "-o",
+      "build/kernel_main.o",
+      "src/kernel_main.c"
+    ],
+    "directory": "/root/CSC-454/Binux",
+    "file": "/root/CSC-454/Binux/src/kernel_main.c",
+    "output": "/root/CSC-454/Binux/build/kernel_main.o"
+  },
+  {
+    "arguments": [
+      "/opt/x86_64-cross/bin/x86_64-elf-gcc",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-ffreestanding",
+      "-Ilib",
+      "-c",
+      "-o",
+      "build/string.o",
+      "lib/string.c"
+    ],
+    "directory": "/root/CSC-454/Binux",
+    "file": "/root/CSC-454/Binux/lib/string.c",
+    "output": "/root/CSC-454/Binux/build/string.o"
+  },
+  {
+    "arguments": [
+      "/opt/x86_64-cross/bin/x86_64-elf-gcc",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-ffreestanding",
+      "-Ilib",
+      "-c",
+      "-o",
+      "build/vga_driver.o",
+      "lib/vga_driver.c"
+    ],
+    "directory": "/root/CSC-454/Binux",
+    "file": "/root/CSC-454/Binux/lib/vga_driver.c",
+    "output": "/root/CSC-454/Binux/build/vga_driver.o"
+  }
+]
