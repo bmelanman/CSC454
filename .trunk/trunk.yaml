@@ -32,7 +32,7 @@ lint:
         - output: regex
           parse_regex: '((?P<path>(?:[^|])*?):(?P<line>\d+): \[(?P<severity>.*?)\] (?P<message>.*?) \((?P<code>.*?)\))'
           run_from: ${root_or_parent_with_direct_config}
-          run: /home/arch/go/bin/checkmake ${target}
+          run: checkmake ${target}
           read_output_from: stdout
           error_codes: [256]
       direct_configs:
@@ -40,14 +40,14 @@ lint:
   enabled:
     - markdownlint@0.38.0
     - checkmake@SYSTEM
-    - checkov@3.1.51
+    - checkov@3.1.54
     - clang-tidy@16.0.3
     - clang-format@SYSTEM
     - git-diff-check
     - prettier@3.1.1
     - shellcheck@0.9.0
     - shfmt@3.6.0
-    - trivy@0.48.1
+    - trivy@0.48.2
     - trufflehog@3.63.7
     - yamllint@1.33.0
 actions:

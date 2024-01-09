@@ -4,6 +4,10 @@
     "*.h": "c",
     "*.S": "riscv",
     "*.s": "riscv",
-    "pr78051.C": "cpp"
+    "Makefile": "makefile",
+    "*.sv": "systemverilog",
+    "*.asm": "gas",
+    "pr78051.C": "cpp",
+    "vector": "c"
   }
 }
