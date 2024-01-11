@@ -11,11 +11,7 @@
 
 #include "printk.h"
 
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
-
+#include "common.h"
 #include "vga_driver.h"
 
 /* Private Defines and Macros */
@@ -91,10 +87,6 @@ void print_oct( uint64_t n )
     VGA_display_char( (char)( ( n % 8 ) + '0' ) );
 }
 
-#define parse_int( sp, args )   parse_specifier( sp, args, int )
-#define parse_long( sp, args )  parse_specifier( sp, args, long )
-#define parse_llong( sp, args ) parse_specifier( sp, args, llong )
-
 #define parse_specifier( sp, args, type )                                                     \
     do                                                                                        \
     {                                                                                         \
@@ -161,27 +153,28 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
                         break;
 
                     case 'l':  // Long
-                        if ( fmt[i + 2] == 'l' )
+                        switch ( fmt[i + 2] )
                         {
-                            parse_llong( fmt[i + 3], args );
-                            i++;
-                        }
-                        else
-                        {
-                            parse_long( fmt[i + 2], args );
+                            case 'l':
+                                parse_specifier( fmt[i + 3], args, llong );
+                                i++;
+                                break;
+
+                            default:
+                                parse_specifier( fmt[i + 2], args, long );
+                                break;
                         }
                         i++;
                         break;
 
                     case 'h':  // Short
                     case 'q':  // Long Long
-                        parse_llong( fmt[i + 2], args );
+                        parse_specifier( fmt[i + 2], args, llong );
                         i++;
                         break;
 
                     default:
-                        parse_int( fmt[i + 1], args );
-                        i++;
+                        parse_specifier( fmt[i + 1], args, int );
                         break;
                 }
 

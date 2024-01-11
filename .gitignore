@@ -10,3 +10,4 @@ Binux/cross_comp/*/
 
 # Ignore generated files
 Binux/build/*
+**/compile_commands.json

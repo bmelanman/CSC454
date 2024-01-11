@@ -2,31 +2,16 @@
 
 alias make="make -j\$(nproc)"
 
+# Setup the directory tree
 ROOT_DIR="$(pwd)"
+TARGET=x86_64-elf
+PREFIX="/opt/${TARGET}-cross"
+PATH="${PREFIX}/bin:${PATH}"
 
 # Prompt
 echo "+------------------------------------------------------------------------------+"
-echo "|This script will setup a cross compiler for x86_64-elf on the system.         |"
+echo "|This script will setup a cross compiler for ${TARGET} on the system.         |"
 echo "+------------------------------------------------------------------------------+"
-
-echo "+----------------------------------------------------------+"
-echo "|Updating the system and installing necessary packages...  |"
-echo "+----------------------------------------------------------+"
-
-# Install necessary packages, but dont reinstall them if they are already installed
-PACKAGES=(
-	"base-devel"
-	"gmp"
-	"libmpc"
-	"mpfr"
-)
-
-pacman -Syu --noconfirm --needed "${PACKAGES[@]}"
-
-# Setup the directory tree
-PREFIX="/opt/x86_64-cross"
-TARGET=x86_64-elf
-PATH="${PREFIX}/bin:${PATH}"
 
 echo "+----------------------------------------------------------+"
 echo "|Downloading Binutils and GCC source code...               |"

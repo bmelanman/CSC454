@@ -14,11 +14,21 @@
 
 /* Includes */
 
+# include <stdarg.h>
+# include <stddef.h>
+# include <stdint.h>
+# include <string.h>
+
 /* Defines */
+
+# define TRUE  ( 1U )
+# define FALSE ( 0U )
 
 /* Macros */
 
 /* Typedefs */
+
+typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
 
 /* Public Functions */
 

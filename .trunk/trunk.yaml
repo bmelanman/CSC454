@@ -17,6 +17,11 @@ runtimes:
     - python@3.10.8
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
+  disabled:
+    - prettier
+    - trivy
+    - trufflehog
+    - yamllint
   files:
     - name: Makefile
       filenames:
@@ -37,19 +42,23 @@ lint:
           error_codes: [256]
       direct_configs:
         - checkmake.ini
+    - name: Bear
+      files: [ALL]
+      commands:
+        - output: pass_fail
+          run: bear -- make all -C ./Binux/
+          read_output_from: stdout
+          success_codes: [0, 1]
   enabled:
     - markdownlint@0.38.0
     - checkmake@SYSTEM
-    - checkov@3.1.54
+    - checkov@3.1.57
     - clang-tidy@16.0.3
     - clang-format@SYSTEM
     - git-diff-check
-    - prettier@3.1.1
     - shellcheck@0.9.0
     - shfmt@3.6.0
-    - trivy@0.48.2
-    - trufflehog@3.63.7
-    - yamllint@1.33.0
+    - Bear@SYSTEM
 actions:
   enabled:
     - trunk-announce

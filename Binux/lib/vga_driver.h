@@ -14,7 +14,7 @@
 
 /* Includes */
 
-# include <stdint.h>
+# include "common.h"
 
 /* Defines */
 

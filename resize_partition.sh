@@ -13,22 +13,12 @@ if [[ $# -ne 0 ]]; then
 	exit 1
 fi
 
-# Check for parted
-if ! parted --version; then
-	echo "Error: parted is not installed." >&2
-	exit 1
-fi
-
-# Check for resize2fs
-if ! resize2fs --version; then
-	echo "Error: resize2fs is not installed." >&2
-	exit 1
-fi
-
 # Target disk
 DISK=/dev/vda
 # Target partition
 PART_NUM=2
+
+sync
 
 # Resize partition
 parted "${DISK}" "resizepart" "${PART_NUM}" "100%"
@@ -36,6 +26,8 @@ parted "${DISK}" "resizepart" "${PART_NUM}" "100%"
 # Resize filesystem
 resize2fs "${DISK}${PART_NUM}"
 
+# Print new partition info
+parted "${DISK}" "print" "all"
+
 # Done!
 echo "Done!"
-df -h /
