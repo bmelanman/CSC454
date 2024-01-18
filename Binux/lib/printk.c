@@ -167,9 +167,13 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
                         i++;
                         break;
 
-                    case 'h':  // Short
-                    case 'q':  // Long Long
+                    case 'q':  // Long Long NOLINT
                         parse_specifier( fmt[i + 2], args, llong );
+                        i++;
+                        break;
+
+                    case 'h':  // Short
+                        parse_specifier( fmt[i + 2], args, int );
                         i++;
                         break;
 
