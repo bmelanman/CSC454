@@ -32,6 +32,33 @@ typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
 
 /* Public Functions */
 
+# define ASM_inb( addr )                                                  \
+        ( {                                                               \
+            uint8_t ret;                                                  \
+            asm volatile( "inb %%dx, %%al" : "=a"( ret ) : "d"( addr ) ); \
+            ret;                                                          \
+        } )
+
+# define ASM_inw( addr )                                                  \
+        ( {                                                               \
+            uint16_t ret;                                                 \
+            asm volatile( "inw %%dx, %%ax" : "=a"( ret ) : "d"( addr ) ); \
+            ret;                                                          \
+        } )
+
+# define ASM_inl( addr )                                                   \
+        ( {                                                                \
+            uint32_t ret;                                                  \
+            asm volatile( "inl %%dx, %%eax" : "=a"( ret ) : "d"( addr ) ); \
+            ret;                                                           \
+        } )
+
+# define ASM_outb( addr, val ) asm volatile( "outb %%al, %%dx" : : "d"( addr ), "a"( val ) )
+
+# define ASM_outw( addr, val ) asm volatile( "outw %%ax, %%dx" : : "d"( addr ), "a"( val ) )
+
+# define ASM_outl( addr, val ) asm volatile( "outl %%eax, %%dx" : : "d"( addr ), "a"( val ) )
+
 # define sleep( sec )                                 \
         do                                            \
         {                                             \
