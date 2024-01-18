@@ -188,6 +188,29 @@ void vga_display_char_attr( char c, uint8_t attr )
 
             break;
 
+        case '\b':
+            // Clear the current cursor
+            VGA_PUTC( ' ', attr );
+            // Decrement the cursor
+            if ( vga_cursor.col > 0 )
+            {
+                vga_cursor.col--;
+            }
+            else
+            {
+                vga_cursor.col = VGA_WIDTH - 1;
+                if ( vga_cursor.row > 0 )
+                {
+                    vga_cursor.row--;
+                }
+                else
+                {
+                    vga_cursor.row = VGA_HEIGHT - 1;
+                }
+            }
+
+            break;
+
         default:
             // Print the character
             VGA_PUTC( c, attr );
