@@ -1,0 +1,26 @@
+{
+    "tasks": [
+        {
+            "label": "(Debug) Build the kernel and run qemu",
+            "type": "shell",
+            "command": "make -C ${workspaceFolder}/Binux clean run",
+            "args": [ ],
+            "isBackground": true,
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "(Debug) Kill the background QEMU process",
+            "type": "shell",
+            "command": "kill $(pidof qemu-system-x86_64)",
+            "args": [ ],
+            "group": "none"
+        }
+    ],
+    "version": "2.0.0"
+}

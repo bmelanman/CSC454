@@ -43,7 +43,7 @@ lint:
       direct_configs:
         - checkmake.ini
     - name: Bear
-      files: [ALL]
+      files: ["c"]
       commands:
         - output: pass_fail
           run: bear -- make all -C ./Binux/
