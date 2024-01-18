@@ -104,7 +104,7 @@ void VGA_scroll( uint8_t lines )
     if ( lines >= VGA_HEIGHT )
     {
         // Clear the VGA buffer
-        VGA_clear();
+        vga_clear();
 
         // Set the cursor to the top left
         vga_cursor.row = 0;
@@ -137,7 +137,7 @@ void VGA_scroll( uint8_t lines )
 
 /* Public Functions */
 
-void VGA_clear( void )
+void vga_clear( void )
 {
     int i, len = VGA_WIDTH * VGA_HEIGHT;
 
@@ -148,10 +148,10 @@ void VGA_clear( void )
     }
 }
 
-void VGA_init( void )
+driver_status_t vga_driver_init( void )
 {
     // Clear the VGA buffer
-    VGA_clear();
+    vga_clear();
 
     // Set the cursor to the top left
     vga_cursor.row = 0;
@@ -163,9 +163,11 @@ void VGA_init( void )
 
     // Update the cursor
     PRINT_CURSOR();
+
+    return SUCCESS;
 }
 
-void VGA_display_char_attr( char c, uint8_t attr )
+void vga_display_char_attr( char c, uint8_t attr )
 {
     // Check character
     switch ( c )
@@ -213,19 +215,19 @@ void VGA_display_char_attr( char c, uint8_t attr )
     PRINT_CURSOR();
 }
 
-void VGA_display_str_attr( const char *s, uint8_t attr )
+void vga_display_str_attr( const char *s, uint8_t attr )
 {
     size_t i, len = strlen( s );
 
     // Print the string
     for ( i = 0; i < len; i++ )
     {
-        VGA_display_char_attr( s[i], attr );
+        vga_display_char_attr( s[i], attr );
     }
 }
 
-void VGA_display_char( char c ) { VGA_display_char_attr( c, VGA_CHAR_DEFAULT_ATTR ); }
+void vga_display_char( char c ) { vga_display_char_attr( c, VGA_CHAR_DEFAULT_ATTR ); }
 
-void VGA_display_str( const char *s ) { VGA_display_str_attr( s, VGA_CHAR_DEFAULT_ATTR ); }
+void vga_display_str( const char *s ) { vga_display_str_attr( s, VGA_CHAR_DEFAULT_ATTR ); }
 
 /*** End of File ***/

@@ -34,17 +34,17 @@
 
 /* Public Functions */
 
-void VGA_init( void );
+driver_status_t vga_driver_init( void );
 
-void VGA_clear( void );
+void vga_clear( void );
 
-void VGA_display_char( char c );
+void vga_display_char( char c );
 
-void VGA_display_str( const char *s );
+void vga_display_str( const char *s );
 
-void VGA_display_char_attr( char c, uint8_t attr );
+void vga_display_char_attr( char c, uint8_t attr );
 
-void VGA_display_str_attr( const char *s, uint8_t attr );
+void vga_display_str_attr( const char *s, uint8_t attr );
 
 #endif /* VGA_DRIVER_H */
 

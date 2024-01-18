@@ -4,7 +4,6 @@
 # Target OS parameters
 TARGET 	:= BinuxOS
 ARCH 	:= x86_64
-# DISK_LABEL 	:= $(shell echo $(TARGET) | tr a-z A-Z)
 
 # Directories
 SRC_DIR := src
@@ -36,25 +35,25 @@ GRUB_LEN	:= 2048
 PART_OFFSET	:= $(shell echo $$(($(SECT_LEN) * $(GRUB_LEN))))
 
 # Toolchain
-CC = $(ARCH)-elf-gcc
-OBJCOPY = $(ARCH)-elf-objcopy
+CC 			:= $(ARCH)-elf-gcc
+OBJCOPY 	:= $(ARCH)-elf-objcopy
 
 # Compiler flags
-FLAGS = -nostdlib
-INCLUDES = -I$(LIB_DIR)
-C_FLAGS = -Wall -Wextra -g -ffreestanding $(INCLUDES)
+INCLUDES 	:= -I$(LIB_DIR)
+LD_FLAGS 	:= -nostdlib $(INCLUDES)
+CC_FLAGS 	:= -Wall -Wextra -g -ffreestanding $(LD_FLAGS)
 
 all: $(KERNEL)
 
 img: $(IMG)
+
+test: run
 
 run: clean $(IMG)
 	printf "change vnc password\nroot\n" | qemu-system-$(ARCH) -s \
 		-monitor stdio \
 		-vnc :0,password=on \
 		-drive format=raw,file=$(IMG)
-
-test: run
 
 $(IMG): $(KERNEL) $(GRUB_CFG)
 	dd if=/dev/zero of=$(IMG) bs=1M count=$(IMG_SIZE_MB)
@@ -85,7 +84,7 @@ $(IMG): $(KERNEL) $(GRUB_CFG)
 	losetup -d /dev/loop1
 
 $(KERNEL): $(LINKER_LD) $(DEPS)
-	$(CC) -o $@ $(FLAGS) $(INCLUDES) -T $^
+	$(CC) -o $@ $(LD_FLAGS) -T $^
 
 $(BLD_DIR)/%.o: $(SRC_DIR)/%.asm
 	@mkdir -p $(shell dirname $@)
@@ -93,20 +92,19 @@ $(BLD_DIR)/%.o: $(SRC_DIR)/%.asm
 
 $(BLD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(shell dirname $@)
-	$(CC) $(C_FLAGS) -c $< -o $@
+	$(CC) $(CC_FLAGS) -c $< -o $@
 
 $(BLD_DIR)/%.o: $(LIB_DIR)/%.c
 	@mkdir -p $(shell dirname $@)
-	$(CC) $(C_FLAGS) -c $< -o $@
+	$(CC) $(CC_FLAGS) -c $< -o $@
 
 count:
 	wc -l $(ASM_SRC) $(C_SRC) $(C_LIB)
 
 clean:
-	@bear -- make all &>/dev/null || true
 	@[ -d $(FS_MNT) ] && umount -q -R $(FS_MNT) || true
 	@losetup -d /dev/loop0 2>/dev/null || true
 	@losetup -d /dev/loop1 2>/dev/null || true
 	@rm -rf build || true
 
-.PHONY: all img run test clean $(IMG) $(KERNEL)
+.PHONY: all img run test clean

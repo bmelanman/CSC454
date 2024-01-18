@@ -34,8 +34,8 @@ typedef enum {
         print_char( sp );     \
     } while ( 0 )
 
-#define print_char( c ) VGA_display_char( c )
-#define print_str( s )  VGA_display_str( s )
+#define print_char( c ) vga_display_char( c )
+#define print_str( s )  vga_display_str( s )
 
 void print_llu( ullong n )
 {
@@ -44,14 +44,14 @@ void print_llu( ullong n )
         print_llu( n / 10 );
     }
 
-    VGA_display_char( (char)( ( n % 10 ) + '0' ) );
+    vga_display_char( (char)( ( n % 10 ) + '0' ) );
 }
 
 void print_ll( llong n )
 {
     if ( n < 0 )
     {
-        VGA_display_char( '-' );
+        vga_display_char( '-' );
         n = -n;
     }
 
@@ -69,11 +69,11 @@ void print_hex( uint64_t n, char_case_t char_case )
 
     if ( digit < 10 )
     {
-        VGA_display_char( (char)( digit + '0' ) );
+        vga_display_char( (char)( digit + '0' ) );
     }
     else
     {
-        VGA_display_char( (char)( ( digit - 10 ) + ( 'a' - (int)char_case ) ) );
+        vga_display_char( (char)( ( digit - 10 ) + ( 'a' - (int)char_case ) ) );
     }
 }
 
@@ -84,7 +84,7 @@ void print_oct( uint64_t n )
         print_oct( n / 8 );
     }
 
-    VGA_display_char( (char)( ( n % 8 ) + '0' ) );
+    vga_display_char( (char)( ( n % 8 ) + '0' ) );
 }
 
 #define parse_specifier( sp, args, type )                                                     \
