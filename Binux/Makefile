@@ -8,6 +8,7 @@ ARCH 	:= x86_64
 # Directories
 SRC_DIR := src
 LIB_DIR := lib
+TST_DIR := test
 BLD_DIR	:= build
 FS_MNT	:= build/rootfs
 
@@ -17,7 +18,8 @@ GRUB_CFG	:= $(SRC_DIR)/grub.cfg
 
 ASM_SRC	:= $(wildcard $(SRC_DIR)/*.asm)
 C_SRC	:= $(wildcard $(SRC_DIR)/*.c)
-C_LIB	+= $(wildcard $(LIB_DIR)/*.c)
+C_LIB	:= $(wildcard $(LIB_DIR)/*.c)
+C_TST	:= $(wildcard $(TST_DIR)/*.c)
 
 # Object files
 DEPS	:= $(patsubst $(SRC_DIR)/%.asm,$(BLD_DIR)/%.o,$(ASM_SRC)) \
