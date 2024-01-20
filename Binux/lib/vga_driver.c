@@ -15,21 +15,21 @@
 
 /* Private Defines and Macros */
 
-#define __unused        __attribute__( ( unused ) )
-#define __packed        __attribute__( ( packed ) )
-#define __format_printf __attribute__( ( format( printf, 1, 2 ) ) )
+#define __unused __attribute__( ( unused ) )
+#define __packed __attribute__( ( packed ) )
 
 #define VGA_BUFFER ( (uint16_t *)0xB8000 )
+#define VGA_WIDTH  ( 80U )
+#define VGA_HEIGHT ( 25U )
+#define VGA_SIZE   ( VGA_WIDTH * VGA_HEIGHT )
 
 #define VGA_PUTC( ch, attrs )                                        \
     ( VGA_BUFFER[GET_CURSOR_POS( vga_cursor.row, vga_cursor.col )] = \
           ( (uint16_t)( ( ( (uint8_t)( attrs ) << 8 ) | (uint8_t)( ch ) ) ) ) )
 
-#define VGA_WIDTH  ( 80U )
-#define VGA_HEIGHT ( 25U )
-#define VGA_SIZE   ( VGA_WIDTH * VGA_HEIGHT )
-
 #define GET_CURSOR_POS( row, col ) ( ( ( row ) * VGA_WIDTH ) + ( col ) )
+
+#define TAB_LENGTH ( 4U )
 
 /* Private Typedefs */
 
@@ -84,6 +84,10 @@ typedef struct
 /* Private Global Variables */
 
 static vga_cursor_t vga_cursor;
+
+// Column index of the cursor when a newline occurs on each line
+// Return to the index if the newline is deleted
+static uint8_t newline_col[VGA_HEIGHT] = { 0 };
 
 /* Private Functions */
 
@@ -146,6 +150,16 @@ void vga_clear( void )
     {
         VGA_BUFFER[i] = 0;
     }
+
+    // Clear the newline column index
+    memset( newline_col, 0, VGA_HEIGHT );
+
+    // Set the cursor to the top left
+    vga_cursor.row = 0;
+    vga_cursor.col = 0;
+
+    // Update the cursor
+    PRINT_CURSOR();
 }
 
 driver_status_t vga_driver_init( void )
@@ -169,9 +183,10 @@ driver_status_t vga_driver_init( void )
 
 void vga_display_char_attr( char c, uint8_t attr )
 {
-    // Check character
+    // Handle special characters
     switch ( c )
     {
+        // Return
         case '\r':
             // Clear the current cursor
             VGA_PUTC( ' ', attr );
@@ -180,7 +195,10 @@ void vga_display_char_attr( char c, uint8_t attr )
 
             break;
 
+        // Newline
         case '\n':
+            // Save the column index
+            newline_col[vga_cursor.row] = vga_cursor.col;
             // Clear the current cursor
             VGA_PUTC( ' ', attr );
             // Trick the logic into thinking we need to move to the next line
@@ -188,6 +206,16 @@ void vga_display_char_attr( char c, uint8_t attr )
 
             break;
 
+        // Tab
+        case '\t':
+            // Clear the current cursor
+            VGA_PUTC( ' ', attr );
+            // Increment the cursor
+            vga_cursor.col += TAB_LENGTH;
+
+            break;
+
+        // Backspace
         case '\b':
             // Clear the current cursor
             VGA_PUTC( ' ', attr );
@@ -198,7 +226,6 @@ void vga_display_char_attr( char c, uint8_t attr )
             }
             else
             {
-                vga_cursor.col = VGA_WIDTH - 1;
                 if ( vga_cursor.row > 0 )
                 {
                     vga_cursor.row--;
@@ -207,6 +234,8 @@ void vga_display_char_attr( char c, uint8_t attr )
                 {
                     vga_cursor.row = VGA_HEIGHT - 1;
                 }
+                // Move to the end of the previous line
+                vga_cursor.col = newline_col[vga_cursor.row];
             }
 
             break;
