@@ -13,44 +13,68 @@
 
 #include "keyboard_driver_polling.h"
 #include "printk.h"
+#include "splash.h"
 #include "tests.h"
 #include "vga_driver.h"
 
+int system_initialization( void );
+
 int kernel_main( void )
 {
-    // Initialize the VGA driver
-    if ( vga_driver_init() == FAILURE )
+    // Run initialization
+    if ( system_initialization() )
     {
-        printk( "vga_driver_init() failed!\n" );
-
+        OS_ERROR( "System initialization failed!\n" );
         return 1;
     }
-
-    printk( "vga_driver_init() succeeded!\n" );
-
-    // Initialize the keyboard driver
-    if ( keyboard_driver_polling_init() == FAILURE )
-    {
-        printk( "keyboard_driver_polling_init() failed!\n" );
-
-        return 1;
-    }
-
-    printk( "keyboard_driver_polling_init() succeeded!\n" );
-
-    //// Poll the keyboard driver and print the character to the screen
-    // while ( 1 )
-    //{
-    //     char c = keyboard_driver_polling_get_char();
-    //     if ( c != 0 )
-    //     {
-    //         printk( "%c", c );
-    //     }
-    // }
 
     // Run tests
+    // test_printk();
 
-    test_printk();
+    // Poll the keyboard driver and print the character to the screen
+    while ( 1 )
+    {
+        char c = keyboard_driver_polling_get_char();
+
+        if ( c != 0 )
+        {
+            printk( "%c", c );
+        }
+    }
+
+    return 0;
+}
+
+int system_initialization( void )
+{
+    OS_INFO( "Beginning system initialization...\n" );
+
+    // Initialize the VGA driver
+    OS_INFO( "Initializing VGA driver...\n" );
+    if ( vga_driver_init() == FAILURE )
+    {
+        OS_ERROR( "VGA driver initialization failed!\n" );
+        return 1;
+    }
+
+    OS_INFO( "VGA driver initialization was successful!\n" );
+
+    // Initialize the keyboard driver
+    OS_INFO( "Initializing keyboard driver...\n" );
+    if ( keyboard_driver_polling_init() == FAILURE )
+    {
+        OS_ERROR( "Keyboard driver initialization failed!\n" );
+        return 1;
+    }
+
+    OS_INFO( "Keyboard driver initialization was successful!\n" );
+
+    // Init complete, print splash screen
+    OS_INFO( "System initialization is complete!\n" );
+
+    vga_clear();
+
+    splash_screen();
 
     return 0;
 }
