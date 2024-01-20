@@ -11,12 +11,16 @@
 
 #include "keyboard_driver_polling.h"
 
+#include <stdbool.h>
+
 #include "printk.h"
 #include "scan_code_set_2_to_ascii.h"
 
-/* Private Defines and Macros */
+#pragma region "Polling Keyboard Driver"
 
-#define BUFFER_EMPTY ( 0U )
+#pragma region "Private Defines and Macros"
+
+#define SLEEP_LEN_MS ( 10U )
 
 // Status Register
 #define STATUS_REGISTER_ADDR ( (uintptr_t)0x64 )
@@ -28,6 +32,8 @@
 #define COMMAND_DATA_MSK( stat )         ( ( stat ) & ( 0b00001000 ) )  // 0 = DEVICE, 1 = CONTLR
 #define TIMEOUT_ERROR_MSK( stat )        ( ( stat ) & ( 0b01000000 ) )  // 0 = normal, 1 = error
 #define PARITY_ERROR_MSK( stat )         ( ( stat ) & ( 0b10000000 ) )  // 0 = normal, 1 = error
+
+#define BUFFER_EMPTY ( 0U )
 
 #define DEVICE_COMMAND ( 0U )
 #define CONTLR_COMMAND ( 1U )
@@ -76,39 +82,37 @@
 // Scan Codes
 #define SCAN_CODE_SET2 ( 0x41U )
 
-/* Private Typedefs */
+#pragma endregion
 
-/* Global Variables */
-
-/* Private Functions */
+#pragma region "Private Functions"
 
 // TODO: Check Command/Data flag in Status Register
 
 uint8_t status_register_read( void )
 {
     // Read the status register
-    return ASM_inb( STATUS_REGISTER_ADDR );
+    return ASM_read8( STATUS_REGISTER_ADDR );
 }
 
 uint8_t data_port_read( void )
 {
     // Read the byte from the data port
-    return ASM_inb( DATA_PORT_ADDR );
+    return ASM_read8( DATA_PORT_ADDR );
 }
 
 void data_port_write( uint8_t byte )
 {
     // Write the byte to the data port
-    ASM_outb( DATA_PORT_ADDR, byte );
+    ASM_write8( DATA_PORT_ADDR, byte );
 }
 
 void command_register_cmd( uint8_t command )
 {
     // Write the command to the command register
-    ASM_outb( COMMAND_REGISTER_ADDR, command );
+    ASM_write8( COMMAND_REGISTER_ADDR, command );
 
     // Wait
-    sleep( 1 );
+    sleep_ms( SLEEP_LEN_MS );
 }
 
 uint8_t command_register_cmd_read( uint8_t command )
@@ -129,15 +133,13 @@ void command_register_cmd_write( uint8_t command, uint8_t byte )
     data_port_write( byte );
 }
 
-#define MAX_RETRIES ( 30U )
-
 uint8_t keyboard_read( void )
 {
     // Poll the status register until the output buffer is full
     while ( OUTPUT_BUFFER_STATUS_MSK( status_register_read() ) == BUFFER_EMPTY )
     {
         // Wait
-        sleep( 1 );
+        sleep_ms( SLEEP_LEN_MS );
     }
 
     // Read the resulting byte from the data port
@@ -150,15 +152,17 @@ void keyboard_write( uint8_t byte )
     while ( INPUT_BUFFER_STATUS_MSK( status_register_read() ) != BUFFER_EMPTY )
     {
         // Wait
-        sleep( 1 );
+        sleep_ms( SLEEP_LEN_MS );
     }
 
     // Write the byte to the data port
     data_port_write( byte );
 
     // Wait
-    sleep( 1 );
+    sleep_ms( SLEEP_LEN_MS );
 }
+
+#pragma endregion
 
 /* Public Functions */
 
@@ -190,11 +194,7 @@ driver_status_t keyboard_driver_polling_init( void )
     if ( status_byte != CONTLR_SELF_TEST_OK )
     {
         // Send an error message
-        printk(
-            "ERR: PS/2 Controller Self Test Failed! "
-            "Exit code = 0x%X\n\n",
-            status_byte
-        );
+        OS_ERROR( "PS/2 Controller Self Test Failed! Exit code = 0x%X\n\n", status_byte );
 
         // Return failure
         return FAILURE;
@@ -232,8 +232,8 @@ driver_status_t keyboard_driver_polling_init( void )
                 break;
         }
 
-        printk(
-            "ERR: PS/2 Port 1 Interface Test Failed! "
+        OS_ERROR(
+            "PS/2 Port 1 Interface Test Failed! "
             "Exit code = 0x%X ( %s )\n\n",
             status_byte, status_byte_err_msg
         );
@@ -247,7 +247,7 @@ driver_status_t keyboard_driver_polling_init( void )
     if ( status_byte != 0 )
     {
         // Send an error message
-        printk( "ERR: PS/2 Port 1 Reset Failed! Exit code = 0x%X\n\n", status_byte );
+        OS_ERROR( "PS/2 Port 1 Reset Failed! Exit code = 0x%X\n\n", status_byte );
 
         // Return failure
         return FAILURE;
@@ -270,7 +270,7 @@ driver_status_t keyboard_driver_polling_init( void )
             break;
         }
 
-        printk( "ERR: Get scan code returned 0x%X\n", status_byte );
+        OS_ERROR( "Get scan code returned 0x%X\n", status_byte );
         return FAILURE;
     }
 
@@ -280,7 +280,7 @@ driver_status_t keyboard_driver_polling_init( void )
 
     if ( keyboard_read() != KBD_ACK )
     {
-        printk( "ERR: Get scan code returned 0x%X\n\n", status_byte );
+        OS_ERROR( "Get scan code returned 0x%X\n\n", status_byte );
         return FAILURE;
     }
 
@@ -288,7 +288,7 @@ driver_status_t keyboard_driver_polling_init( void )
 
     if ( status_byte != SCAN_CODE_SET2 )
     {
-        printk( "ERR: Get scan code returned 0x%X\n\n", status_byte );
+        OS_ERROR( "Get scan code returned 0x%X\n\n", status_byte );
         return FAILURE;
     }
 
@@ -299,10 +299,196 @@ driver_status_t keyboard_driver_polling_init( void )
     return SUCCESS;
 }
 
+#pragma endregion
+
+#pragma region "Scan Code Set 2 to ASCII"
+
+#pragma region "Private Defines and Macros"
+
+// Modifier Keys
+#define ESC   ( 0x1B )
+#define BS    ( '\b' )
+#define TAB   ( '\t' )
+#define LF    ( '\n' )
+#define SHIFT ( 0x2A )
+#define CAPS  ( 0x3A )
+#define CTRL  ( 0x1D )
+#define ALT   ( 0x38 )
+#define NUL   ( '\0' )
+
+// Key released in scan code set 2
+#define KEY_RELEASED ( 0xF0 )
+
+// Uppercase and lowercase keys
+#define ASCII_TABLE_SIZE 128
+
+char standard_ascii_table[ASCII_TABLE_SIZE] = {
+    NUL,  ESC,  '1', '2',  '3', '4', '5', '6', '7', '8', '9', '0',  '-', '=', BS,  // First Row
+    TAB,  'q',  'w', 'e',  'r', 't', 'y', 'u', 'i', 'o', 'p', '[',  ']', LF,       // Second Row
+    CTRL, 'a',  's', 'd',  'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',           // Third Row
+    NUL,  '\\', 'z', 'x',  'c', 'v', 'b', 'n', 'm', ',', '.', '/',  NUL, '*',      // Fourth Row
+    ALT,  ' ',  NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,   NUL, NUL,      // Misc Keys
+};
+
+char shift_ascii_table[ASCII_TABLE_SIZE] = {
+    NUL,  ESC, '!', '@',  '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', BS,  // First Row
+    TAB,  'Q', 'W', 'E',  'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', LF,       // Second Row
+    CTRL, 'A', 'S', 'D',  'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~',           // Third Row
+    NUL,  '|', 'Z', 'X',  'C', 'V', 'B', 'N', 'M', '<', '>', '?', NUL, '*',      // Fourth Row
+    ALT,  ' ', NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,  NUL, NUL,      // Misc Keys
+};
+
+char caps_ascii_table[ASCII_TABLE_SIZE] = {
+    NUL,  ESC,  '1', '2',  '3', '4', '5', '6', '7', '8', '9', '0',  '-', '=', BS,  // First Row
+    TAB,  'Q',  'W', 'E',  'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[',  ']', LF,       // Second Row
+    CTRL, 'A',  'S', 'D',  'F', 'G', 'H', 'J', 'K', 'L', ';', '\'', '`',           // Third Row
+    NUL,  '\\', 'Z', 'X',  'C', 'V', 'B', 'N', 'M', ',', '.', '/',  NUL, '*',      // Fourth Row
+    ALT,  ' ',  NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,   NUL, NUL,      // Misc Keys
+};
+
+char caps_shift_ascii_table[ASCII_TABLE_SIZE] = {
+    NUL,  ESC, '!', '@',  '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', BS,  // First Row
+    TAB,  'q', 'w', 'e',  'r', 't', 'y', 'u', 'i', 'o', 'p', '{', '}', LF,       // Second Row
+    CTRL, 'a', 's', 'd',  'f', 'g', 'h', 'j', 'k', 'l', ':', '"', '~',           // Third Row
+    NUL,  '|', 'z', 'x',  'c', 'v', 'b', 'n', 'm', '<', '>', '?', NUL, '*',      // Fourth Row
+    ALT,  ' ', NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,  NUL, NUL,      // Misc Keys
+};
+
+char *ascii_table_shift_OFF = standard_ascii_table;
+char *ascii_table_shift_ON = shift_ascii_table;
+
+#pragma endregion
+
+#pragma region "Global Variables"
+
+static bool key_released = false;
+static bool shift_pressed = false;
+static bool caps_enabled = false;
+
+#pragma endregion
+
 char keyboard_driver_polling_get_char( void )
 {
-    // Read the byte from the data port and convert it to ASCII
-    return scan_code_set2_to_ascii( keyboard_read() );
+    uint8_t scan_code;
+    uint8_t prev_key, curr_key = 0;
+
+    char key = NUL;
+
+    while ( true )
+    {
+        // Wait for a scan code
+        scan_code = keyboard_read();
+
+        // Check if the key was pressed or released
+        if ( scan_code == KEY_RELEASED )
+        {
+            // Key was released
+            key_released = true;
+            continue;
+        }
+
+        // Check if the shift key was pressed/released
+        if ( scan_code == SHIFT )
+        {
+            // Check key state
+            if ( key_released )
+            {
+                // Key was released
+                shift_pressed = false;
+                key_released = false;
+            }
+            else
+            {
+                // Key was pressed
+                shift_pressed = true;
+            }
+
+            continue;
+        }
+
+        // Check if the caps lock key was pressed/released
+        if ( scan_code == CAPS )
+        {
+            // Check key state
+            if ( key_released )
+            {
+                // Key was released
+                key_released = false;
+            }
+            else
+            {
+                // Key was pressed
+                caps_enabled = !caps_enabled;
+
+                // Update the ASCII table
+                if ( caps_enabled )
+                {
+                    ascii_table_shift_OFF = caps_ascii_table;
+                    ascii_table_shift_ON = caps_shift_ascii_table;
+                }
+                else
+                {
+                    ascii_table_shift_OFF = standard_ascii_table;
+                    ascii_table_shift_ON = shift_ascii_table;
+                }
+            }
+
+            continue;
+        }
+
+        prev_key = curr_key;
+        curr_key = scan_code;
+
+        // Check if the key was released
+        if ( key_released )
+        {
+            // Error check
+            if ( curr_key != prev_key )
+            {
+                // Send an error message
+                OS_ERROR(
+                    "Key released scan code does not match previous scan code! "
+                    "Prev = 0x%X, Curr = 0x%X\n\n",
+                    prev_key, curr_key
+                );
+            }
+
+            // Key was released
+            key_released = false;
+            continue;
+        }
+
+        // Make sure the key is valid
+        if ( curr_key >= ASCII_TABLE_SIZE )
+        {
+            // Send an error message
+            // OS_ERROR( "Invalid key recieved! Scan code = 0x%X\n", curr_key );
+
+            // Return the null character
+            // return NUL;
+
+            continue;
+        }
+
+        // Check if the shift key was also pressed
+        if ( shift_pressed )
+        {
+            // Return the uppercase character
+            key = ascii_table_shift_ON[curr_key];
+        }
+        else
+        {
+            // Return the lowercase character
+            key = ascii_table_shift_OFF[curr_key];
+        }
+
+        break;
+    }
+
+    // Return the key!
+    return key;
 }
+
+#pragma endregion
 
 /*** End of File ***/
