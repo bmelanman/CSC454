@@ -19,6 +19,8 @@
 # include <stdint.h>
 # include <string.h>
 
+# include "printk.h"
+
 /* Defines */
 
 # define TRUE  ( 1U )
@@ -32,44 +34,55 @@ typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
 
 /* Public Functions */
 
-# define ASM_inb( addr )                                                  \
+// Read a byte from the specified address
+# define ASM_read8( addr )                                                \
         ( {                                                               \
             uint8_t ret;                                                  \
             asm volatile( "inb %%dx, %%al" : "=a"( ret ) : "d"( addr ) ); \
             ret;                                                          \
         } )
-
-# define ASM_inw( addr )                                                  \
+// Read a word from the specified address
+# define ASM_read16( addr )                                               \
         ( {                                                               \
             uint16_t ret;                                                 \
             asm volatile( "inw %%dx, %%ax" : "=a"( ret ) : "d"( addr ) ); \
             ret;                                                          \
         } )
-
-# define ASM_inl( addr )                                                   \
+// Read a double word from the specified address
+# define ASM_read32( addr )                                                \
         ( {                                                                \
             uint32_t ret;                                                  \
             asm volatile( "inl %%dx, %%eax" : "=a"( ret ) : "d"( addr ) ); \
             ret;                                                           \
         } )
 
-# define ASM_outb( addr, val ) asm volatile( "outb %%al, %%dx" : : "d"( addr ), "a"( val ) )
+// Write a byte to the specified address
+# define ASM_write8( addr, val ) asm volatile( "outb %%al, %%dx" : : "d"( addr ), "a"( val ) )
+// Write a word to the specified address
+# define ASM_write16( addr, val ) asm volatile( "outw %%ax, %%dx" : : "d"( addr ), "a"( val ) )
+// Write a double word to the specified address
+# define ASM_write32( addr, val ) asm volatile( "outl %%eax, %%dx" : : "d"( addr ), "a"( val ) )
 
-# define ASM_outw( addr, val ) asm volatile( "outw %%ax, %%dx" : : "d"( addr ), "a"( val ) )
+// Print an info message
+# define OS_INFO( ... ) printk( "INFO: " __VA_ARGS__ )
+// Print a warning message
+# define OS_WARN( ... ) printk( "WARN: " __VA_ARGS__ )
+// Print an error message
+# define OS_ERROR( ... ) printk( "ERROR: " __VA_ARGS__ )
 
-# define ASM_outl( addr, val ) asm volatile( "outl %%eax, %%dx" : : "d"( addr ), "a"( val ) )
+# define ONE_SECOND_IN_USEC ( 1000000U )
 
-# define sleep( sec )                                 \
-        do                                            \
-        {                                             \
-            for ( int i = 0; i < sec; i++ )           \
-            {                                         \
-                for ( int j = 0; j < 100000000; j++ ) \
-                {                                     \
-                    __asm__ volatile( "nop" );        \
-                }                                     \
-            }                                         \
-        } while ( 0 )
+// Sleep for the specified number of milliseconds
+void __attribute__( ( weak ) ) sleep_ms( uint64_t ms )
+{
+    for ( uint64_t i = 0; i < ms; i++ )
+    {
+        for ( uint64_t j = 0; j < ONE_SECOND_IN_USEC; j++ )
+        {
+            asm volatile( "nop" : : : "memory" );
+        }
+    }
+}
 
 #endif /* UTIL_H */
 
