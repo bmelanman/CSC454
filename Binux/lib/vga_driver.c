@@ -35,17 +35,16 @@
 
 typedef struct
 {
-    uint8_t row;
-    uint8_t col;
-    uint8_t ch;
-    uint8_t attr;
-} vga_cursor_t;
+    uint8_t ch;    // Character
+    uint8_t attr;  // Attributes
+} vga_char_t;
 
 typedef struct
 {
-    uint8_t ch;
-    uint8_t attr;
-} vga_char_t;
+    uint8_t row;        // Row index
+    uint8_t col;        // Column index
+    vga_char_t v_char;  // Character and attributes
+} vga_cursor_t;
 
 // VGA Character Attributes
 #define VGA_CHAR_BLINK_OFFSET 7
@@ -79,7 +78,7 @@ typedef struct
     VGA_CHAR_ATTR( BLINK_OFF, INTNS_OFF, VGA_COLOR_BLACK, VGA_COLOR_WHITE )
 
 // Cursor
-#define PRINT_CURSOR() VGA_PUTC( vga_cursor.ch, vga_cursor.attr )
+#define PRINT_CURSOR() VGA_PUTC( vga_cursor.v_char.ch, vga_cursor.v_char.attr )
 
 /* Private Global Variables */
 
@@ -143,23 +142,13 @@ void VGA_scroll( uint8_t lines )
 
 void vga_clear( void )
 {
-    int i, len = VGA_WIDTH * VGA_HEIGHT;
+    int len = VGA_WIDTH * VGA_HEIGHT;
 
     // Clear the VGA buffer
-    for ( i = 0; i < len; i++ )
-    {
-        VGA_BUFFER[i] = 0;
-    }
+    memset( VGA_BUFFER, 0, (uint16_t)( len ) );
 
     // Clear the newline column index
     memset( newline_col, 0, VGA_HEIGHT );
-
-    // Set the cursor to the top left
-    vga_cursor.row = 0;
-    vga_cursor.col = 0;
-
-    // Update the cursor
-    PRINT_CURSOR();
 }
 
 driver_status_t vga_driver_init( void )
@@ -172,8 +161,9 @@ driver_status_t vga_driver_init( void )
     vga_cursor.col = 0;
 
     // Set the default character and attributes
-    vga_cursor.ch = '_';
-    vga_cursor.attr = VGA_CHAR_ATTR( BLINK_OFF, INTNS_OFF, VGA_COLOR_BLACK, VGA_COLOR_WHITE );
+    vga_cursor.v_char.ch = '_';
+    vga_cursor.v_char.attr =
+        VGA_CHAR_ATTR( BLINK_OFF, INTNS_OFF, VGA_COLOR_BLACK, VGA_COLOR_WHITE );
 
     // Update the cursor
     PRINT_CURSOR();
@@ -262,9 +252,6 @@ void vga_display_char_attr( char c, uint8_t attr )
             vga_cursor.row = VGA_HEIGHT - 1;
         }
     }
-
-    // Update the cursor
-    PRINT_CURSOR();
 }
 
 void vga_display_str_attr( const char *s, uint8_t attr )
@@ -276,9 +263,10 @@ void vga_display_str_attr( const char *s, uint8_t attr )
     {
         vga_display_char_attr( s[i], attr );
     }
-}
 
-void vga_display_char( char c ) { vga_display_char_attr( c, VGA_CHAR_DEFAULT_ATTR ); }
+    // Update the cursor
+    PRINT_CURSOR();
+}
 
 void vga_display_str( const char *s ) { vga_display_str_attr( s, VGA_CHAR_DEFAULT_ATTR ); }
 

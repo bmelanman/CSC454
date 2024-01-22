@@ -38,13 +38,7 @@ driver_status_t vga_driver_init( void );
 
 void vga_clear( void );
 
-void vga_display_char( char c );
-
 void vga_display_str( const char *s );
-
-void vga_display_char_attr( char c, uint8_t attr );
-
-void vga_display_str_attr( const char *s, uint8_t attr );
 
 #endif /* VGA_DRIVER_H */
 
