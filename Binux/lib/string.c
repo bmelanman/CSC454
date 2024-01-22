@@ -13,8 +13,6 @@
 
 /* Private Defines and Macros */
 
-#define MAX_STR_LEN ( 65536U )  // 64 KiB
-
 /* Global Variables */
 
 /* Private Functions */
@@ -47,11 +45,17 @@ void *memcpy( void *dest, const void *src, size_t n )
 
 size_t strnlen( const char *s, size_t maxlen )
 {
-    size_t len = 0;
+    size_t len;
 
-    while ( s[len] != '\0' && len < maxlen )
+    if ( s == NULL || maxlen == 0 || *s == '\0' )
     {
-        len++;
+        return 0;
+    }
+
+    len = 0;
+
+    while ( *s++ != '\0' && ++len < maxlen )
+    {
     }
 
     return len;
@@ -94,27 +98,41 @@ char *strndup( const char *s, size_t n )
 
 const char *strchr( const char *s, int c )
 {
-    while ( *s != '\0' )
+    do
     {
+        // Check if we found the character before checking if we reached the end of the string,
+        // just in case the character is '\0'
         if ( *s == c )
         {
             return s;
         }
 
-        s++;
-    }
+    } while ( *s++ != '\0' );
 
     return NULL;
 }
 
 char *strncat( char *dest, const char *src, size_t n )
 {
-    size_t i, len = strlen( dest );
+    size_t i, len;
 
-    for ( i = 0; i < n; i++ )
+    if ( dest == NULL || src == NULL )
     {
-        dest[len + i] = src[i];
+        return NULL;
     }
+
+    if ( *src == '\0' || n == 0 )
+    {
+        return dest;
+    }
+
+    i = 0;
+    len = strlen( dest );
+
+    do
+    {
+        dest[len + i] = *src++;
+    } while ( *src != '\0' && ++i < n );
 
     return dest;
 }

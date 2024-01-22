@@ -21,6 +21,8 @@
 
 /* Macros */
 
+# define MAX_STR_LEN ( 65536U )  // 64 KiB
+
 /* Typedefs */
 
 /* Public Functions */
