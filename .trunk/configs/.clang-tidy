@@ -33,6 +33,7 @@ Checks: >-
   -readability-identifier-length,
   -readability-isolate-declaration,
   -readability-magic-numbers,
+  -readability-braces-around-statements
 
 CheckOptions:
   - key:            readability-function-cognitive-complexity.Threshold
