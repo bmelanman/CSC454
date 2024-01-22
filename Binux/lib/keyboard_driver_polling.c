@@ -14,7 +14,6 @@
 #include <stdbool.h>
 
 #include "printk.h"
-#include "scan_code_set_2_to_ascii.h"
 
 #pragma region "Polling Keyboard Driver"
 
