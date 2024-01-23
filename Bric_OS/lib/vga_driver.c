@@ -82,7 +82,12 @@ typedef struct
 
 /* Private Global Variables */
 
-static vga_cursor_t vga_cursor;
+static vga_cursor_t vga_cursor =
+    { .row = 0,
+      .col = 0,
+      .v_char = {
+          .ch = '_', .attr = VGA_CHAR_ATTR( BLINK_OFF, INTNS_OFF, VGA_COLOR_BLACK, VGA_COLOR_WHITE )
+      } };
 
 // Column index of the cursor when a newline occurs on each line
 // Return to the index if the newline is deleted
@@ -107,7 +112,7 @@ void VGA_scroll( uint8_t lines )
     if ( lines >= VGA_HEIGHT )
     {
         // Clear the VGA buffer
-        vga_clear();
+        VGA_clear();
 
         // Set the cursor to the top left
         vga_cursor.row = 0;
@@ -140,35 +145,22 @@ void VGA_scroll( uint8_t lines )
 
 /* Public Functions */
 
-void vga_clear( void )
+void VGA_clear( void )
 {
-    int len = VGA_WIDTH * VGA_HEIGHT;
+    size_t len = (size_t)( VGA_WIDTH * VGA_HEIGHT * 2 );
 
     // Clear the VGA buffer
-    memset( VGA_BUFFER, 0, (uint16_t)( len ) );
+    memset( VGA_BUFFER, 0, len );
 
     // Clear the newline column index
     memset( newline_col, 0, VGA_HEIGHT );
-}
 
-driver_status_t vga_driver_init( void )
-{
-    // Clear the VGA buffer
-    vga_clear();
-
-    // Set the cursor to the top left
+    // Reset the cursor position
     vga_cursor.row = 0;
     vga_cursor.col = 0;
 
-    // Set the default character and attributes
-    vga_cursor.v_char.ch = '_';
-    vga_cursor.v_char.attr =
-        VGA_CHAR_ATTR( BLINK_OFF, INTNS_OFF, VGA_COLOR_BLACK, VGA_COLOR_WHITE );
-
     // Update the cursor
     PRINT_CURSOR();
-
-    return SUCCESS;
 }
 
 void vga_display_char_attr( char c, uint8_t attr )
@@ -268,6 +260,8 @@ void vga_display_str_attr( const char *s, uint8_t attr )
     PRINT_CURSOR();
 }
 
-void vga_display_str( const char *s ) { vga_display_str_attr( s, VGA_CHAR_DEFAULT_ATTR ); }
+void VGA_display_char( char c ) { vga_display_char_attr( c, VGA_CHAR_DEFAULT_ATTR ); }
+
+void VGA_display_str( const char *s ) { vga_display_str_attr( s, VGA_CHAR_DEFAULT_ATTR ); }
 
 /*** End of File ***/

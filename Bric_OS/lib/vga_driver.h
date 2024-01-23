@@ -34,11 +34,13 @@
 
 /* Public Functions */
 
-driver_status_t vga_driver_init( void );
+driver_status_t VGA_driver_init( void );
 
-void vga_clear( void );
+void VGA_clear( void );
 
-void vga_display_str( const char *s );
+void VGA_display_char( char );
+
+void VGA_display_str( const char* );
 
 #endif /* VGA_DRIVER_H */
 
