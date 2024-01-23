@@ -13,13 +13,13 @@
 
 #include <stdbool.h>
 
-#include "printk.h"
+#include "vga_driver.h"
 
 #pragma region "Polling Keyboard Driver"
 
 #pragma region "Private Defines and Macros"
 
-#define SLEEP_LEN_MS ( 10U )
+#define SLEEP_LEN_MS ( 1U )
 
 // Status Register
 #define STATUS_REGISTER_ADDR ( (uintptr_t)0x64 )
@@ -366,6 +366,38 @@ static bool caps_enabled = false;
 
 #pragma endregion
 
+void VGA_display_hex_str( const char *s, uint8_t byte )
+{
+    uint8_t nibble;
+
+    VGA_display_str( s );
+    VGA_display_str( "0x" );
+
+    // Print the high nibble
+    nibble = ( byte & 0xF0 ) >> 4;
+    if ( nibble < 10 )
+    {
+        VGA_display_char( (char)( nibble + '0' ) );
+    }
+    else
+    {
+        VGA_display_char( (char)( nibble - 10 + 'A' ) );
+    }
+
+    // Print the low nibble
+    nibble = byte & 0x0F;
+    if ( nibble < 10 )
+    {
+        VGA_display_char( (char)( nibble + '0' ) );
+    }
+    else
+    {
+        VGA_display_char( (char)( nibble - 10 + 'A' ) );
+    }
+
+    VGA_display_char( '\n' );
+}
+
 char keyboard_driver_polling_get_char( void )
 {
     uint8_t scan_code;
@@ -373,10 +405,16 @@ char keyboard_driver_polling_get_char( void )
 
     char key = NUL;
 
+    // TODO: Fix key release issues on modifier keys
+    // TODO: Fix how backspace works in the vga driver
+
     while ( true )
     {
         // Wait for a scan code
         scan_code = keyboard_read();
+
+        //// Print the scan code
+        // VGA_display_hex_str( "Scan Code = 0x", scan_code );
 
         // Check if the key was pressed or released
         if ( scan_code == KEY_RELEASED )
