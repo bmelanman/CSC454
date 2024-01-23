@@ -31,19 +31,13 @@ typedef enum {
 
 /* Private Functions */
 
-#define print_str( s ) vga_display_str( s )
+#define print_str( s ) VGA_display_str( s )
 
-void format_char( char *str, char c )
-{
-    str[0] = c;
-    str[1] = '\0';
-}
+void format_char( char *str, char c ) { strncat( str, &c, 1 ); }
 
 void format_str( char *str, char *s )
 {
-    size_t len = strlen( str );
-
-    if ( len == MAX_STR_LEN - 1 )
+    if ( strlen( str ) == MAX_STR_LEN - 1 )
     {
         OS_ERROR( "String buffer overflow!\n" );
         return;
@@ -63,19 +57,15 @@ void format_llu_base_n( char *str, ullong n, uint8_t base, uint8_t text_case )
     }
 
     uint8_t digit_d = (uint8_t)( n % base );
-    char digit_c;
 
     if ( digit_d < 10 )
     {
-        digit_c = (char)( digit_d + '0' );
+        format_char( str, (char)( digit_d + '0' ) );
     }
     else
     {
-        digit_c = (char)( digit_d - 10 + 'A' + text_case );
+        format_char( str, (char)( digit_d - 10 + 'A' + text_case ) );
     }
-
-    str[len] = digit_c;
-    str[len + 1] = '\0';
 
     if ( n / base )
     {
@@ -87,7 +77,7 @@ void format_ll_base_n( char *str, llong n, uint8_t base, uint8_t text_case )
 {
     if ( n < 0 )
     {
-        str[0] = '-';
+        format_char( str, '-' );
         format_llu_base_n( str + 1, (ullong)( -n ), base, text_case );
     }
     else
@@ -146,82 +136,87 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
     va_list args;
     va_start( args, fmt );
 
-    size_t str_idx, len = strlen( fmt );
+    size_t str_idx, fmt_len = strlen( fmt ), output_len = 1024;
 
-    char str[MAX_STR_LEN] = { 0 };
+    char output_str[output_len];
 
-    for ( str_idx = 0; str_idx < len; str_idx++ )
+    memset( output_str, 0, output_len );
+
+    for ( str_idx = 0; str_idx < fmt_len; str_idx++ )
     {
+        // Check if the output string is full
+        if ( strlen( output_str ) >= ( output_len - 32 ) )
+        {
+            print_str( output_str );
+
+            memset( output_str, 0, output_len );
+        }
+
+        // Check for format specifier (i.e. '%')
         switch ( fmt[str_idx] )
         {
+            // Format specifier
             case '%':
                 switch ( fmt[str_idx + 1] )
                 {
                     case '%':
-                        format_char( str, '%' );
+                        format_char( output_str, '%' );
                         break;
 
                     case 'c':  // Character
-                        format_char( str, (char)va_arg( args, uint ) );
+                        format_char( output_str, (char)va_arg( args, uint ) );
                         break;
 
                     case 's':  // String
-                        format_str( str, va_arg( args, char * ) );
+                        format_str( output_str, va_arg( args, char * ) );
                         break;
 
                     case 'p':  // Pointer
-                        format_str( str, "0x" );
-                        format_hex( str, (uint64_t)va_arg( args, void * ), LOWERCASE );
+                        format_str( output_str, "0x" );
+                        format_hex( output_str, (uint64_t)va_arg( args, void * ), LOWERCASE );
                         break;
 
                     case 'l':  // Long
                         switch ( fmt[str_idx + 2] )
                         {
                             case 'l':
-                                parse_specifier( str, fmt[str_idx + 3], args, llong );
+                                parse_specifier( output_str, fmt[str_idx + 3], args, llong );
                                 str_idx++;
                                 break;
 
                             default:
-                                parse_specifier( str, fmt[str_idx + 2], args, long );
+                                parse_specifier( output_str, fmt[str_idx + 2], args, long );
                                 break;
                         }
                         str_idx++;
                         break;
 
                     case 'q':  // Long Long NOLINT
-                        parse_specifier( str, fmt[str_idx + 2], args, llong );
+                        parse_specifier( output_str, fmt[str_idx + 2], args, llong );
                         str_idx++;
                         break;
 
                     case 'h':  // Short
-                        parse_specifier( str, fmt[str_idx + 2], args, int );
+                        parse_specifier( output_str, fmt[str_idx + 2], args, int );
                         str_idx++;
                         break;
 
                     default:
-                        parse_specifier( str, fmt[str_idx + 1], args, int );
+                        parse_specifier( output_str, fmt[str_idx + 1], args, int );
                         break;
                 }
 
                 str_idx++;
                 break;
 
+            // All other characters
             default:
-                format_char( str, fmt[str_idx] );
+                format_char( output_str, fmt[str_idx] );
                 break;
-        }
-
-        if ( strlen( str ) == MAX_STR_LEN - 1 )
-        {
-            OS_ERROR( "String buffer overflow!\n" );
-
-            va_end( args );
-            return 1;
         }
     }
 
-    print_str( str );
+    print_str( output_str );
 
     va_end( args );
 

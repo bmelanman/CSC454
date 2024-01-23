@@ -13,19 +13,20 @@
 
 /* Private Defines and Macros */
 
-/* Global Variables */
-
-/* Private Functions */
+#define uchar unsigned char
 
 /* Public Functions */
 
 void *memset( void *dst, int c, size_t n )
 {
-    size_t i;
-
-    for ( i = 0; i < n; i++ )
+    if ( n != 0 )
     {
-        ( (int *)dst )[i] = c;
+        uchar *d = dst;
+
+        do
+        {
+            *d++ = (uchar)c;
+        } while ( --n != 0 );
     }
 
     return dst;
@@ -33,11 +34,12 @@ void *memset( void *dst, int c, size_t n )
 
 void *memcpy( void *dest, const void *src, size_t n )
 {
-    size_t i;
-
-    for ( i = 0; i < n; i++ )
+    if ( n != 0 )
     {
-        ( (int *)dest )[i] = ( (int *)src )[i];
+        uchar *d = dest;
+        const uchar *s = src;
+
+        while ( n-- ) *d++ = *s++;
     }
 
     return dest;
@@ -45,42 +47,143 @@ void *memcpy( void *dest, const void *src, size_t n )
 
 size_t strnlen( const char *s, size_t maxlen )
 {
-    size_t len;
-
     if ( s == NULL || maxlen == 0 || *s == '\0' )
     {
         return 0;
     }
 
-    len = 0;
+    size_t len = 0;
 
     while ( *s++ != '\0' && ++len < maxlen )
-    {
-    }
+        ;
 
     return len;
 }
 
-char *strncpy( char *dest, const char *src, size_t n )
+size_t strlen( const char *s ) { return strnlen( s, MAX_STR_LEN ); }
+
+char *strncat( char *dest, const char *src, size_t n )
 {
-    memcpy( dest, src, n );
+    if ( dest == NULL || src == NULL )
+    {
+        return NULL;
+    }
+
+    if ( *src == '\0' || n == 0 )
+    {
+        return dest;
+    }
+
+    char *dest_end = dest + strlen( dest );
+
+    strncpy( dest_end, src, n );
+
+    return dest;
+}
+
+char *strcat( char *dest, const char *src )
+{
+    if ( dest == NULL || src == NULL )
+    {
+        return NULL;
+    }
+
+    if ( *src == '\0' )
+    {
+        return dest;
+    }
+
+    size_t len = strlen( dest );
+
+    strncpy( dest + len, src, strlen( src ) );
 
     return dest;
 }
 
 int strncmp( const char *s1, const char *s2, size_t n )
 {
-    size_t i;
-
-    for ( i = 0; i < n; i++ )
+    if ( s1 == NULL || s2 == NULL )
     {
-        if ( s1[i] != s2[i] )
-        {
-            return s1[i] - s2[i];
-        }
+        return -1;
     }
 
-    return 0;
+    if ( n == 0 )
+    {
+        return 0;
+    }
+
+    uchar c1, c2;
+
+    do
+    {
+        c1 = *s1++;
+        c2 = *s2++;
+
+        if ( c1 == '\0' )
+        {
+            return c1 - c2;
+        }
+
+    } while ( c1 == c2 && --n != 0 );
+
+    return c1 - c2;
+}
+
+int strcmp( const char *s1, const char *s2 )
+{
+    if ( s1 == NULL || s2 == NULL )
+    {
+        return -1;
+    }
+
+    size_t len1 = strlen( s1 );
+    size_t len2 = strlen( s2 );
+
+    if ( len1 > len2 )
+    {
+        return strncmp( s1, s2, len1 );
+    }
+
+    return strncmp( s1, s2, len2 );
+}
+
+char *strncpy( char *dest, const char *src, size_t n )
+{
+    if ( dest == NULL || src == NULL )
+    {
+        return NULL;
+    }
+
+    if ( *src == '\0' || n == 0 )
+    {
+        return dest;
+    }
+
+    size_t i = 0;
+
+    do
+    {
+        dest[i] = *src++;
+    } while ( *src != '\0' && ++i < n );
+
+    return dest;
+}
+
+char *strcpy( char *dest, const char *src )
+{
+    if ( dest == NULL || src == NULL )
+    {
+        return NULL;
+    }
+
+    if ( *src == '\0' )
+    {
+        return dest;
+    }
+
+    strncpy( dest, src, strlen( src ) );
+
+    return dest;
 }
 
 /*
@@ -95,6 +198,8 @@ char *strndup( const char *s, size_t n )
     return dup;
 }
 */
+
+// char *strdup( const char *s ) { return strndup( s, MAX_STR_LEN ); }
 
 const char *strchr( const char *s, int c )
 {
@@ -111,40 +216,5 @@ const char *strchr( const char *s, int c )
 
     return NULL;
 }
-
-char *strncat( char *dest, const char *src, size_t n )
-{
-    size_t i, len;
-
-    if ( dest == NULL || src == NULL )
-    {
-        return NULL;
-    }
-
-    if ( *src == '\0' || n == 0 )
-    {
-        return dest;
-    }
-
-    i = 0;
-    len = strlen( dest );
-
-    do
-    {
-        dest[len + i] = *src++;
-    } while ( *src != '\0' && ++i < n );
-
-    return dest;
-}
-
-size_t strlen( const char *s ) { return strnlen( s, MAX_STR_LEN ); }
-
-char *strcpy( char *dest, const char *src ) { return strncpy( dest, src, MAX_STR_LEN ); }
-
-int strcmp( const char *s1, const char *s2 ) { return strncmp( s1, s2, MAX_STR_LEN ); }
-
-// char *strdup( const char *s ) { return strndup( s, MAX_STR_LEN ); }
-
-char *strcat( char *dest, const char *src ) { return strncat( dest, src, MAX_STR_LEN ); }
 
 /*** End of File ***/
