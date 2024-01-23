@@ -1,8 +1,8 @@
-# Makefile for BinuxOS
+# Makefile for Bric_OS
 # Created by bryc_wall on 12/29/2023
 
 # Target OS parameters
-TARGET 	:= BinuxOS
+TARGET 	:= Bric_OS
 ARCH 	:= x86_64
 
 # Directories
@@ -62,6 +62,7 @@ test: run
 #	-serial mon:stdio \
 #	-append 'console=ttyS0' \
 #	-drive format=raw,file=$(TARGET_IMG)
+
 run: clean $(TARGET_IMG)
 	printf "change vnc password\nroot\n" | qemu-system-$(ARCH) -s \
 		-monitor stdio \

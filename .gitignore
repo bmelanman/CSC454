@@ -1,13 +1,3 @@
-# Ignore object files
-*.o
-
-# Ignore disk images
-*.img
-*.iso
-
-# Ignore cross-compilation repositories
-Binux/cross_comp/*/
-
 # Ignore generated files
-Binux/build/*
-**/compile_commands.json
+**/build/*
+**/compile_commands*.json

@@ -22,6 +22,7 @@ lint:
     - trivy
     - trufflehog
     - yamllint
+    - checkov
   files:
     - name: Makefile
       filenames:
@@ -46,13 +47,12 @@ lint:
       files: ["c"]
       commands:
         - output: pass_fail
-          run: bear -- make all -C ./Binux/
+          run: bear -- make -C ${workspace}/Bric_OS/ -B all
           read_output_from: stdout
           success_codes: [0, 1]
   enabled:
     - markdownlint@0.38.0
     - checkmake@SYSTEM
-    - checkov@3.1.65
     - clang-tidy@16.0.3
     - clang-format@SYSTEM
     - git-diff-check

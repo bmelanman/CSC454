@@ -3,7 +3,7 @@
         {
             "label": "(Debug) Build the kernel and run qemu",
             "type": "shell",
-            "command": "make -C ${workspaceFolder}/Binux clean run",
+            "command": "make -C ${workspaceFolder}/Bric_OS clean run",
             "args": [ ],
             "isBackground": true,
             "group": {
@@ -12,7 +12,7 @@
             },
             "presentation": {
                 "clear": true
-            }
+            },
         },
         {
             "label": "(Debug) Kill the background QEMU process",
