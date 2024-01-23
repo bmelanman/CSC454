@@ -28,9 +28,6 @@ int kernel_main( void )
         return 1;
     }
 
-    // Run tests
-    // test_printk();
-
     // Poll the keyboard driver and print the character to the screen
     while ( 1 )
     {
@@ -47,19 +44,11 @@ int kernel_main( void )
 
 int system_initialization( void )
 {
+    // Clear the screen
+    VGA_clear();
+
     OS_INFO( "Beginning system initialization...\n" );
 
-    // Initialize the VGA driver
-    OS_INFO( "Initializing VGA driver...\n" );
-    if ( vga_driver_init() == FAILURE )
-    {
-        OS_ERROR( "VGA driver initialization failed!\n" );
-        return 1;
-    }
-
-    OS_INFO( "VGA driver initialization was successful!\n" );
-
-    // Initialize the keyboard driver
     OS_INFO( "Initializing keyboard driver...\n" );
     if ( keyboard_driver_polling_init() == FAILURE )
     {
@@ -69,10 +58,11 @@ int system_initialization( void )
 
     OS_INFO( "Keyboard driver initialization was successful!\n" );
 
-    // Init complete, print splash screen
     OS_INFO( "System initialization is complete!\n" );
 
-    vga_clear();
+    sleep_ms( 1000 );
+
+    VGA_clear();
 
     splash_screen();
 

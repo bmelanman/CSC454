@@ -35,33 +35,36 @@ typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
 /* Public Functions */
 
 // Read a byte from the specified address
-# define ASM_read8( addr )                                                \
-        ( {                                                               \
-            uint8_t ret;                                                  \
-            asm volatile( "inb %%dx, %%al" : "=a"( ret ) : "d"( addr ) ); \
-            ret;                                                          \
+# define ASM_read8( addr )                                                           \
+        ( {                                                                          \
+            uint8_t ret;                                                             \
+            asm volatile( "inb %%dx, %%al" : "=a"( ret ) : "d"( addr ) : "memory" ); \
+            ret;                                                                     \
         } )
 // Read a word from the specified address
-# define ASM_read16( addr )                                               \
-        ( {                                                               \
-            uint16_t ret;                                                 \
-            asm volatile( "inw %%dx, %%ax" : "=a"( ret ) : "d"( addr ) ); \
-            ret;                                                          \
+# define ASM_read16( addr )                                                          \
+        ( {                                                                          \
+            uint16_t ret;                                                            \
+            asm volatile( "inw %%dx, %%ax" : "=a"( ret ) : "d"( addr ) : "memory" ); \
+            ret;                                                                     \
         } )
 // Read a double word from the specified address
-# define ASM_read32( addr )                                                \
-        ( {                                                                \
-            uint32_t ret;                                                  \
-            asm volatile( "inl %%dx, %%eax" : "=a"( ret ) : "d"( addr ) ); \
-            ret;                                                           \
+# define ASM_read32( addr )                                                           \
+        ( {                                                                           \
+            uint32_t ret;                                                             \
+            asm volatile( "inl %%dx, %%eax" : "=a"( ret ) : "d"( addr ) : "memory" ); \
+            ret;                                                                      \
         } )
 
 // Write a byte to the specified address
-# define ASM_write8( addr, val ) asm volatile( "outb %%al, %%dx" : : "d"( addr ), "a"( val ) )
+# define ASM_write8( addr, val ) \
+        asm volatile( "outb %%al, %%dx" : : "d"( addr ), "a"( val ) : "memory" )
 // Write a word to the specified address
-# define ASM_write16( addr, val ) asm volatile( "outw %%ax, %%dx" : : "d"( addr ), "a"( val ) )
+# define ASM_write16( addr, val ) \
+        asm volatile( "outw %%ax, %%dx" : : "d"( addr ), "a"( val ) : "memory" )
 // Write a double word to the specified address
-# define ASM_write32( addr, val ) asm volatile( "outl %%eax, %%dx" : : "d"( addr ), "a"( val ) )
+# define ASM_write32( addr, val ) \
+        asm volatile( "outl %%eax, %%dx" : : "d"( addr ), "a"( val ) : "memory" )
 
 // Print an info message
 # define OS_INFO( ... ) printk( "INFO: " __VA_ARGS__ )
