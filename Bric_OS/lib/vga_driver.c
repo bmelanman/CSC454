@@ -15,9 +15,6 @@
 
 /* Private Defines and Macros */
 
-#define __unused __attribute__( ( unused ) )
-#define __packed __attribute__( ( packed ) )
-
 #define VGA_BUFFER ( (uint16_t *)0xB8000 )
 #define VGA_WIDTH  ( 80U )
 #define VGA_HEIGHT ( 25U )

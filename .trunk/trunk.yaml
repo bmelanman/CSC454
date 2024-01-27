@@ -44,7 +44,7 @@ lint:
       direct_configs:
         - checkmake.ini
     - name: Bear
-      files: ["c"]
+      files: [c]
       commands:
         - output: pass_fail
           run: bear -- make -C ${workspace}/Bric_OS/ -B all

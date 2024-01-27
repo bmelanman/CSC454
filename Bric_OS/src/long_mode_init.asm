@@ -1,7 +1,6 @@
 global long_mode_start
 
 extern kernel_main
-extern vga_driver_init
 
 section .text
 bits 64

@@ -3,9 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/Bric_OS/src",
-                "${workspaceFolder}/Bric_OS/lib",
-                "${workspaceFolder}/Bric_OS/test"
+                "${workspaceFolder}/Bric_OS/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

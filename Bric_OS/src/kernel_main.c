@@ -9,10 +9,9 @@
  * (See http://opensource.org/licenses/MIT for more details.)
  */
 
-#include <limits.h>
-
+#include "ISR/irq_handler.h"
+#include "common.h"
 #include "keyboard_driver_polling.h"
-#include "printk.h"
 #include "splash.h"
 #include "tests.h"
 #include "vga_driver.h"
@@ -42,6 +41,34 @@ int kernel_main( void )
     return 0;
 }
 
+int keyboard_init( void )
+{
+    // Initialize the keyboard driver
+    if ( keyboard_driver_polling_init() == FAILURE )
+    {
+        OS_ERROR( "Keyboard driver initialization failed!\n" );
+        return 1;
+    }
+
+    OS_INFO( "Keyboard driver initialization is complete!\n" );
+
+    return 0;
+}
+
+int ISR_init( void )
+{
+    // Initialize the ISR
+    if ( IRQ_init() == FAILURE )
+    {
+        OS_ERROR( "ISR initialization failed!\n" );
+        return 1;
+    }
+
+    OS_INFO( "ISR initialization is complete!\n" );
+
+    return 0;
+}
+
 int system_initialization( void )
 {
     // Clear the screen
@@ -49,21 +76,19 @@ int system_initialization( void )
 
     OS_INFO( "Beginning system initialization...\n" );
 
-    OS_INFO( "Initializing keyboard driver...\n" );
-    if ( keyboard_driver_polling_init() == FAILURE )
-    {
-        OS_ERROR( "Keyboard driver initialization failed!\n" );
-        return 1;
-    }
+    if ( keyboard_init() ) return 1;
 
-    OS_INFO( "Keyboard driver initialization was successful!\n" );
+    if ( ISR_init() ) return 1;
 
     OS_INFO( "System initialization is complete!\n" );
 
-    sleep_ms( 1000 );
+    // Wait for a second
+    io_wait_n( (uint64_t)1e6 );
 
+    // Clear the screen
     VGA_clear();
 
+    // Print the splash screen
     splash_screen();
 
     return 0;

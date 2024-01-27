@@ -13,13 +13,15 @@
 
 #include <stdbool.h>
 
+#include "common.h"
+#include "printk.h"
 #include "vga_driver.h"
 
 #pragma region "Polling Keyboard Driver"
 
 #pragma region "Private Defines and Macros"
 
-#define SLEEP_LEN_MS ( 1U )
+#define IO_WAIT_LEN ( 100U )
 
 // Status Register
 #define STATUS_REGISTER_ADDR ( (uintptr_t)0x64 )
@@ -90,28 +92,28 @@
 uint8_t status_register_read( void )
 {
     // Read the status register
-    return ASM_read8( STATUS_REGISTER_ADDR );
+    return inb( STATUS_REGISTER_ADDR );
 }
 
 uint8_t data_port_read( void )
 {
     // Read the byte from the data port
-    return ASM_read8( DATA_PORT_ADDR );
+    return inb( DATA_PORT_ADDR );
 }
 
 void data_port_write( uint8_t byte )
 {
     // Write the byte to the data port
-    ASM_write8( DATA_PORT_ADDR, byte );
+    outb( DATA_PORT_ADDR, byte );
 }
 
 void command_register_cmd( uint8_t command )
 {
     // Write the command to the command register
-    ASM_write8( COMMAND_REGISTER_ADDR, command );
+    outb( COMMAND_REGISTER_ADDR, command );
 
     // Wait
-    sleep_ms( SLEEP_LEN_MS );
+    io_wait_n( IO_WAIT_LEN );
 }
 
 uint8_t command_register_cmd_read( uint8_t command )
@@ -138,7 +140,7 @@ uint8_t keyboard_read( void )
     while ( OUTPUT_BUFFER_STATUS_MSK( status_register_read() ) == BUFFER_EMPTY )
     {
         // Wait
-        sleep_ms( SLEEP_LEN_MS );
+        io_wait_n( IO_WAIT_LEN );
     }
 
     // Read the resulting byte from the data port
@@ -151,14 +153,14 @@ void keyboard_write( uint8_t byte )
     while ( INPUT_BUFFER_STATUS_MSK( status_register_read() ) != BUFFER_EMPTY )
     {
         // Wait
-        sleep_ms( SLEEP_LEN_MS );
+        io_wait_n( IO_WAIT_LEN );
     }
 
     // Write the byte to the data port
     data_port_write( byte );
 
     // Wait
-    sleep_ms( SLEEP_LEN_MS );
+    io_wait_n( IO_WAIT_LEN );
 }
 
 #pragma endregion
