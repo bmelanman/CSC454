@@ -15,6 +15,7 @@
 /* Includes */
 
 # include <stdarg.h>
+# include <stdbool.h>
 # include <stddef.h>
 # include <stdint.h>
 # include <string.h>
@@ -23,48 +24,13 @@
 
 /* Defines */
 
-# define TRUE  ( 1U )
-# define FALSE ( 0U )
+# define __unused        __attribute__( ( unused ) )
+# define __packed        __attribute__( ( packed ) )
+# define __noreturn      __attribute__( ( noreturn ) )
+# define __weak          __attribute__( ( weak ) )
+# define __alligned( x ) __attribute__( ( aligned( x ) ) )
 
 /* Macros */
-
-/* Typedefs */
-
-typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
-
-/* Public Functions */
-
-// Read a byte from the specified address
-# define ASM_read8( addr )                                                           \
-        ( {                                                                          \
-            uint8_t ret;                                                             \
-            asm volatile( "inb %%dx, %%al" : "=a"( ret ) : "d"( addr ) : "memory" ); \
-            ret;                                                                     \
-        } )
-// Read a word from the specified address
-# define ASM_read16( addr )                                                          \
-        ( {                                                                          \
-            uint16_t ret;                                                            \
-            asm volatile( "inw %%dx, %%ax" : "=a"( ret ) : "d"( addr ) : "memory" ); \
-            ret;                                                                     \
-        } )
-// Read a double word from the specified address
-# define ASM_read32( addr )                                                           \
-        ( {                                                                           \
-            uint32_t ret;                                                             \
-            asm volatile( "inl %%dx, %%eax" : "=a"( ret ) : "d"( addr ) : "memory" ); \
-            ret;                                                                      \
-        } )
-
-// Write a byte to the specified address
-# define ASM_write8( addr, val ) \
-        asm volatile( "outb %%al, %%dx" : : "d"( addr ), "a"( val ) : "memory" )
-// Write a word to the specified address
-# define ASM_write16( addr, val ) \
-        asm volatile( "outw %%ax, %%dx" : : "d"( addr ), "a"( val ) : "memory" )
-// Write a double word to the specified address
-# define ASM_write32( addr, val ) \
-        asm volatile( "outl %%eax, %%dx" : : "d"( addr ), "a"( val ) : "memory" )
 
 // Print an info message
 # define OS_INFO( ... ) printk( "INFO: " __VA_ARGS__ )
@@ -73,19 +39,54 @@ typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
 // Print an error message
 # define OS_ERROR( ... ) printk( "ERROR: " __VA_ARGS__ )
 
-# define ONE_SECOND_IN_USEC ( 1000000U )
+/* Typedefs */
 
-// Sleep for the specified number of milliseconds
-void __attribute__( ( weak ) ) sleep_ms( uint64_t ms )
-{
-    for ( uint64_t i = 0; i < ms; i++ )
-    {
-        for ( uint64_t j = 0; j < ONE_SECOND_IN_USEC; j++ )
-        {
-            asm volatile( "nop" : : : "memory" );
-        }
-    }
-}
+typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
+
+/* Public Functions */
+
+# pragma region Wait Functions
+
+// Wait a very small amount of time (1 to 4 microseconds, generally). Useful as a simple but
+// imprecise wait.
+void io_wait( void );
+
+// Wait for a specified number of io_wait() calls to complete
+void io_wait_n( uint64_t t );
+
+# pragma endregion
+
+# pragma region Port I/O Functions
+
+// Read a byte from a port
+uint8_t inb( uint16_t port );
+
+// Read a word from a port
+uint16_t inw( uint16_t port );
+
+// Read a double word from a port
+uint32_t inl( uint16_t port );
+
+// Write a byte to a port
+void outb( uint16_t port, uint8_t val );
+
+// Write a word to a port
+void outw( uint16_t port, uint16_t val );
+
+// Write a double word to a port
+void outl( uint16_t port, uint32_t val );
+
+# pragma endregion
+
+# pragma region Interrupt Functions
+
+// Disable interrupts
+unsigned long save_irqdisable( void );
+
+// Restore interrupts
+void irqrestore( unsigned long flags );
+
+# pragma endregion
 
 #endif /* UTIL_H */
 
