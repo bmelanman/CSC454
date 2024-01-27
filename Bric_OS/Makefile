@@ -1,6 +1,8 @@
 # Makefile for Bric_OS
 # Created by bryc_wall on 12/29/2023
 
+LOG_FILE := qemu-system-x86_64.log
+
 # Target OS parameters
 TARGET 	:= Bric_OS
 ARCH 	:= x86_64
@@ -17,24 +19,20 @@ TMP_MNT	:= build/temp_mnt
 FS_MNT	:= build/rootfs
 
 # Source files
-LINKER_LD	:= $(SRC_DIR)/linker.ld
-GRUB_CFG	:= $(SRC_DIR)/grub.cfg
+LINK_LD	:= $(SRC_DIR)/linker.ld
+GRB_CFG	:= $(SRC_DIR)/grub.cfg
 
-ASM_SRC	:= $(wildcard $(SRC_DIR)/*.asm)
-C_SRC	:= $(wildcard $(SRC_DIR)/*.c)
-C_LIB	:= $(wildcard $(LIB_DIR)/*.c)
-C_TST	:= $(wildcard $(TST_DIR)/*.c)
+# Get all C and ASM files as object files
+SOURCES	:= $(shell find $(SRC_DIR) -type f -name '*.c' -o -name '*.asm' ) \
+		   $(shell find $(LIB_DIR) -type f -name '*.c') \
+		   $(shell find $(TST_DIR) -type f -name '*.c')
 
-# Object files
-DEPS	:= $(patsubst $(SRC_DIR)/%.asm,$(OBJ_DIR)/%.o,$(ASM_SRC)) \
-		   $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SRC)) \
-		   $(patsubst $(LIB_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_LIB)) \
-		   $(patsubst $(TST_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_TST))
+OBJECTS	:= $(addprefix $(OBJ_DIR)/,$(SOURCES:=.o))
 
 # Output files
-BLANK_IMG	:= build/blank_grub_fs.img
-KERNEL_BIN 	:= build/kernel-$(TARGET).bin
-TARGET_IMG 	:= build/$(TARGET).img
+BLANK_IMG	:= $(BLD_DIR)/blank_grub_fs.img
+KERNEL_BIN 	:= $(BLD_DIR)/kernel-$(TARGET).bin
+TARGET_IMG 	:= $(BLD_DIR)/$(TARGET).img
 
 # Image parameters
 IMG_SIZE_MB	:= 64
@@ -43,11 +41,14 @@ GRUB_LEN	:= 2048
 PART_OFFSET	:= $(shell echo $$(($(SECT_LEN) * $(GRUB_LEN))))
 
 # Toolchain
-CC 			:= $(ARCH)-elf-gcc
-OBJCOPY 	:= $(ARCH)-elf-objcopy
+PREFIX		:= $(ARCH)-elf-
+CC 			:= $(PREFIX)gcc
+LD 			:= $(PREFIX)ld
+OBJCOPY 	:= $(PREFIX)objcopy
 
 # Compiler flags
-INCLUDES 	:= -I$(LIB_DIR) -I$(TST_DIR)
+SRC_INCS	:= $(shell find $(SRC_DIR) -type d -printf "-I%p " | sed 's/.$$//')
+INCLUDES 	:= -I$(LIB_DIR) -I$(TST_DIR) $(SRC_INCS)
 LD_FLAGS 	:= -nostdlib $(INCLUDES)
 CC_FLAGS 	:= -Wall -Wextra -g -ffreestanding $(LD_FLAGS)
 
@@ -55,7 +56,12 @@ all: $(KERNEL_BIN)
 
 img: $(TARGET_IMG)
 
-test: run
+test:
+	@echo ''
+	@echo 'SOURCES:'
+	@for src in $(SOURCES); do echo $$src; done
+	@echo 'OBJECTS:'
+	@for obj in $(OBJECTS); do echo $$obj; done
 
 #qemu-system-$(ARCH) -s \
 #	-nographic \
@@ -64,12 +70,12 @@ test: run
 #	-drive format=raw,file=$(TARGET_IMG)
 
 run: clean $(TARGET_IMG)
-	printf "change vnc password\nroot\n" | qemu-system-$(ARCH) -s \
-		-monitor stdio \
-		-vnc :0,password=on \
-		-drive format=raw,file=$(TARGET_IMG)
+	printf "change vnc password\nroot\n" | qemu-system-$(ARCH) \
+		-s -no-reboot -d int,in_asm -D $(LOG_FILE) \
+		-monitor stdio -vnc :0,password=on \
+		-drive format=raw,file=$(TARGET_IMG) && echo ""
 
-$(TARGET_IMG): $(BLANK_IMG) $(KERNEL_BIN) $(GRUB_CFG)
+$(TARGET_IMG): $(BLANK_IMG) $(KERNEL_BIN) $(GRB_CFG)
 	cp $(BLANK_IMG) $@
 
 	losetup /dev/loop0 $@ -o $(PART_OFFSET)
@@ -78,7 +84,7 @@ $(TARGET_IMG): $(BLANK_IMG) $(KERNEL_BIN) $(GRUB_CFG)
 	mkdir -p $(FS_MNT)/boot/grub
 
 	cp $(KERNEL_BIN) $(FS_MNT)/boot/kernel.bin
-	cp $(GRUB_CFG) $(FS_MNT)/boot/grub/grub.cfg
+	cp $(GRB_CFG) $(FS_MNT)/boot/grub/grub.cfg
 
 	umount $(FS_MNT)
 	losetup -d /dev/loop0
@@ -110,28 +116,22 @@ $(BLANK_IMG):
 	losetup -d /dev/loop0
 	losetup -d /dev/loop1
 
-$(KERNEL_BIN): $(LINKER_LD) $(DEPS)
+# Linker target for linking all object files
+$(KERNEL_BIN): $(LINK_LD) $(OBJECTS)
 	@mkdir -p $(shell dirname $@)
-	$(CC) -o $@ $(LD_FLAGS) -T $^
+	$(LD) -o $@ $(LD_FLAGS) -T $^
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.asm
-	@mkdir -p $(shell dirname $@)
+# Generic compiler target for compiling C and ASM files
+$(OBJ_DIR)/%.c.o: %.c
+	@mkdir -p $(@D)
+	$(CC) $(CC_FLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.asm.o: %.asm
+	@mkdir -p $(@D)
 	nasm -f elf64 $< -o $@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	@mkdir -p $(shell dirname $@)
-	$(CC) $(CC_FLAGS) -c $< -o $@
-
-$(OBJ_DIR)/%.o: $(LIB_DIR)/%.c
-	@mkdir -p $(shell dirname $@)
-	$(CC) $(CC_FLAGS) -c $< -o $@
-
-$(OBJ_DIR)/%.o: $(TST_DIR)/%.c
-	@mkdir -p $(shell dirname $@)
-	$(CC) $(CC_FLAGS) -c $< -o $@
-
 count:
-	wc -l $(ASM_SRC) $(C_SRC) $(C_LIB)
+	wc -l $(SOURCES)
 
 clean-all: clean
 	@rm -rf $(BLD_DIR)
