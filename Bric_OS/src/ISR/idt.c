@@ -11,11 +11,21 @@
 
 #include "idt.h"
 
-#include "gdt.h"
-
 /* Private Defines and Macros */
 
+#define GDT_OFFSET_KMODE_CODE_SEG ( 0x08 )
+#define GDT_OFFSET_KMODE_DATA_SEG ( 0x10 )
+
 /* Global Variables */
+
+// Table of IDT entries
+static idt_entry_t idt[IDT_MAX_DESCRIPTORS];
+
+// Table of vectors
+static __unused bool vectors[IDT_MAX_DESCRIPTORS];
+
+// IDTR
+static idtr_t idtr;
 
 /* Private Functions */
 
@@ -31,19 +41,6 @@ void idt_reload( idtr_t* idtr )
 
 /* Public Functions */
 
-__noreturn void exception_handler( void )
-{
-    // Cause a hang
-    __asm__ volatile(
-        "cli\n\t"
-        "hlt"
-    );
-
-    // Should never get here
-    while ( 1 )
-        ;
-}
-
 void idt_init( void )
 {
     idtr.base = (uintptr_t)&idt[0];
@@ -51,7 +48,7 @@ void idt_init( void )
 
     for ( uint8_t vector = 0; vector < 32; vector++ )
     {
-        idt_set_descriptor( vector, isr_stub_table[vector], 0x8E, 1 );
+        idt_set_descriptor( vector, isr_stub_table[vector], PRESENT_TRAP_GATE );
         vectors[vector] = true;
     }
 
@@ -59,13 +56,16 @@ void idt_init( void )
     idt_reload( &idtr );
 }
 
-void idt_set_descriptor( uint8_t vector, void* isr, uint8_t flags, uint8_t ist )
+void idt_set_descriptor( uint8_t vector, void* isr, uint8_t flags )
 {
     idt_entry_t* descriptor = &idt[vector];
 
     descriptor->isr_low = (uint64_t)isr & 0x0000FFFF;
     descriptor->kernel_cs = GDT_OFFSET_KMODE_CODE_SEG;
-    descriptor->ist = ist;
+
+    // TODO: implement IST
+    descriptor->ist = 0;
+
     descriptor->attributes = flags;
     descriptor->isr_mid = ( (uint64_t)isr >> 16 ) & 0x0000FFFF;
     descriptor->isr_high = ( (uint64_t)isr >> 32 ) & 0xFFFFFFFF;

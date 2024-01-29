@@ -29,6 +29,10 @@ typedef void ( *irq_handler_t )( int, int, void* );
 
 /* Public Functions */
 
+void interrupt_handler( int irq, int error, void* arg );
+
+void exception_handler( void );
+
 driver_status_t IRQ_init( void );
 
 void IRQ_set_mask( int irq );
@@ -39,7 +43,7 @@ int IRQ_get_mask( int IRQline );
 
 void IRQ_end_of_interrupt( int irq );
 
-void IRQ_set_handler( int irq, irq_handler_t handler, __unused void* arg );
+void IRQ_set_handler( uint16_t irq, irq_handler_t handler, void* arg );
 
 #endif /* IRQ_HANDLER_H */
 

@@ -20,6 +20,13 @@
 
 # define IDT_MAX_DESCRIPTORS ( 0x100U )
 
+# define PRESENT_FLAG        ( 0x80U )  // 0b10000000
+# define INTERRUPT_GATE_FLAG ( 0x0EU )  // 0b00001110
+# define TRAP_GATE_FLAG      ( 0x0FU )  // 0b00001111
+
+# define PRESENT_INTERRUPT_GATE ( PRESENT_FLAG | INTERRUPT_GATE_FLAG )
+# define PRESENT_TRAP_GATE      ( PRESENT_FLAG | TRAP_GATE_FLAG )
+
 /* Macros */
 
 /* Typedefs */
@@ -29,7 +36,7 @@ typedef struct __packed
 {
     uint16_t isr_low;    // The lower 16 bits of the ISR's address
     uint16_t kernel_cs;  // GDT segment selector for the CPU to load into CS before calling the ISR
-    uint8_t ist;         // The IST in the TSS for the CPU to load into RSP // TODO: Change
+    uint8_t ist;         // The IST in the TSS for the CPU to load into RSP
     uint8_t attributes;  // Type and attributes; see the IDT page
     uint16_t isr_mid;    // The higher 16 bits of the lower 32 bits of the ISR's address
     uint32_t isr_high;   // The higher 32 bits of the ISR's address
@@ -45,17 +52,8 @@ typedef struct __packed
 
 /* Global Variables */
 
-// Table of IDT entries
-static __unused idt_entry_t idt[256];
-
-// IDTR
-static __unused idtr_t idtr;
-
 // Table of ISR stub function pointers
-extern __unused uint64_t* isr_stub_table[];
-
-// Table of vectors
-static __unused bool vectors[IDT_MAX_DESCRIPTORS];
+extern uint64_t* isr_stub_table[];
 
 /* Public Functions */
 
@@ -66,7 +64,7 @@ __noreturn void exception_handler( void );
 void idt_init( void );
 
 // Set an IDT descriptor
-void idt_set_descriptor( uint8_t vector, void* isr, uint8_t flags, uint8_t ist );
+void idt_set_descriptor( uint8_t vector, void* isr, uint8_t flags );
 
 #endif /* IDT_H */
 

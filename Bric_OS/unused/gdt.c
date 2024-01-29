@@ -227,13 +227,10 @@ void gdt_init( void )
     asm volatile( "lgdt %0" : : "m"( gdt_ptr ) );
 
     // Load the segment registers
-    reload_segments();
+    // reload_segments();
 
     // Setup the TSS
     // tss_init();
-
-    // Set the stack pointer
-    asm volatile( "mov $0x0, %rsp" );
 }
 
 /*** End of File ***/
