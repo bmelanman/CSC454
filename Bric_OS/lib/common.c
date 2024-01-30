@@ -23,7 +23,7 @@
 
 void io_wait( void ) { outb( 0x80, 0 ); }
 
-void io_wait_n( uint64_t t )
+void io_wait_n( uint32_t t )
 {
     while ( t-- ) io_wait();
 }

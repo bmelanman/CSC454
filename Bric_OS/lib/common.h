@@ -52,7 +52,7 @@ typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
 void io_wait( void );
 
 // Wait for a specified number of io_wait() calls to complete
-void io_wait_n( uint64_t t );
+void io_wait_n( uint32_t t );
 
 # pragma endregion
 

@@ -3,9 +3,16 @@ extern long_mode_start
 
 section .rodata
 gdt64:
-    dq 0 ; zero entry
-.code: equ $ - gdt64
-    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) ; code segment
+.null_desc: equ $ - gdt64 ; Null descriptor
+    dq 0
+.kmode_code: equ $ - gdt64
+    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) ; Kernel Mode Code Segment
+.kmode_data: equ $ - gdt64
+    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) | (1<<54) ; Kernel Mode Data Segment
+.umode_code: equ $ - gdt64
+    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) | (1<<55) ; User Mode Code Segment
+.umode_data: equ $ - gdt64
+    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) | (1<<54) | (1<<55) ; User Mode Data Segment
 .pointer:
     dw $ - gdt64 - 1
     dq gdt64
@@ -25,13 +32,13 @@ start:
     ; load the 64-bit GDT
     lgdt [gdt64.pointer]
 
-    ; // print `OK` to screen
-    ; // mov dword [0xb8000], 0x2f4b2f4f
+    ; print `OK` to screen
+    ;mov dword [0xb8000], 0x2f4b2f4f
 
     ; jump to kernel start (doesn't return)
-    jmp gdt64.code:long_mode_start
+    jmp gdt64.kmode_code:long_mode_start
 
-    ; halt just in case
+    ; halt just in case (should never get here)
     hlt
 
 ; Prints `ERR: ` and the given error code to screen and hangs.
