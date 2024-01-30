@@ -13,8 +13,8 @@
 
 #include <limits.h>
 
-#include "keyboard_driver_polling.h"
 #include "printk.h"
+#include "ps2_keyboard_driver.h"
 
 /* Private Functions */
 
@@ -51,7 +51,7 @@ void test_printk( void )
 
     // Wait for the user to press a key
     printk( "Press any key to continue the test...   \n" );
-    keyboard_driver_polling_get_char();
+    polling_keyboard_get_char();
 
     printk( "                                        \n" );
     printk( "Testing %%h[dux]:                       \n" );

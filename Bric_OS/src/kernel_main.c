@@ -11,7 +11,7 @@
 
 #include "ISR/irq_handler.h"
 #include "common.h"
-#include "keyboard_driver_polling.h"
+#include "ps2_keyboard_driver.h"
 #include "splash.h"
 #include "tests.h"
 #include "vga_driver.h"
@@ -30,7 +30,7 @@ int kernel_main( void )
     // Poll the keyboard driver and print the character to the screen
     while ( 1 )
     {
-        char c = keyboard_driver_polling_get_char();
+        char c = polling_keyboard_get_char();
 
         if ( c != 0 )
         {
@@ -44,7 +44,7 @@ int kernel_main( void )
 int keyboard_init( void )
 {
     // Initialize the keyboard driver
-    if ( keyboard_driver_polling_init() == FAILURE )
+    if ( ps2_keyboard_driver_init( PS2_DRIVER_POLLING ) == FAILURE )
     {
         OS_ERROR( "Keyboard driver initialization failed!\n" );
         return 1;
@@ -79,6 +79,11 @@ int system_initialization( void )
     if ( keyboard_init() ) return 1;
 
     if ( ISR_init() ) return 1;
+
+    // Set and enable the interrupt handler for the keyboard
+    // IRQ_set_handler( PS2_DRIVER_IRQ, ps2_keyboard_driver_interrupt_handler, NULL );
+
+    // IRQ_set_handler( 0, interrupt_handler, NULL );
 
     OS_INFO( "System initialization is complete!\n" );
 

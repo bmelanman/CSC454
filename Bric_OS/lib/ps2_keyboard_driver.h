@@ -1,4 +1,4 @@
-/** @file keyboard_driver_polling.h
+/** @file ps2_keyboard_driver.h
  *
  * @brief A description of the module's purpose.
  *
@@ -9,8 +9,8 @@
  * (See http://opensource.org/licenses/MIT for more details.)
  */
 
-#ifndef KEYBOARD_DRIVER_POLLING_H
-# define KEYBOARD_DRIVER_POLLING_H
+#ifndef PS2_KEYBOARD_DRIVER_H
+# define PS2_KEYBOARD_DRIVER_H
 
 /* Includes */
 
@@ -18,16 +18,21 @@
 
 /* Defines */
 
+# define PS2_DRIVER_POLLING ( 0U )
+# define PS2_DRIVER_IRQ     ( 1U )
+
 /* Macros */
 
 /* Typedefs */
 
 /* Public Functions */
 
-driver_status_t keyboard_driver_polling_init( void );
+void ps2_keyboard_driver_interrupt_handler( int irq, int error, void *arg );
 
-char keyboard_driver_polling_get_char( void );
+driver_status_t ps2_keyboard_driver_init( int driver_type );
 
-#endif /* KEYBOARD_DRIVER_POLLING_H */
+char polling_keyboard_get_char( void );
+
+#endif /* PS2_KEYBOARD_DRIVER_H */
 
 /*** End of File ***/
