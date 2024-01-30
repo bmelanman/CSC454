@@ -3,7 +3,7 @@
         {
             "label": "(Debug) Build the kernel and run qemu",
             "type": "shell",
-            "command": "make -C ${workspaceFolder}/Bric_OS clean run",
+            "command": "./start_qemu.sh --make --start",
             "args": [],
             "isBackground": true,
             "group": "build",
@@ -14,7 +14,7 @@
         {
             "label": "(Debug) Kill the background QEMU process",
             "type": "shell",
-            "command": "kill $(pidof qemu-system-x86_64)",
+            "command": "./start_qemu.sh --kill",
             "args": [],
             "group": "none"
         }

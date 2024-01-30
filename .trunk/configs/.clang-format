@@ -32,7 +32,7 @@ SpaceBeforeParensOptions:
   AfterFunctionDefinitionName: false
 
 SpacesInParens: Custom
-SpacesInParensOptions: 
+SpacesInParensOptions:
   InConditionalStatements: true
   InCStyleCasts: false
   InEmptyParentheses: false

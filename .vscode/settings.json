@@ -6,7 +6,7 @@
     "*.s": "riscv",
     "Makefile": "makefile",
     "*.sv": "systemverilog",
-    "*.asm": "gas",
+    "*.asm": "asm-intel-x86-generic",
     "pr78051.C": "cpp",
     "vector": "c",
     "array": "c",
