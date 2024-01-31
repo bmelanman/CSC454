@@ -43,6 +43,8 @@
 
 typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
 
+typedef unsigned int uint;
+
 /* Public Functions */
 
 # pragma region Wait Functions
