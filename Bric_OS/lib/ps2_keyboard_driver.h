@@ -18,18 +18,16 @@
 
 /* Defines */
 
-# define PS2_DRIVER_POLLING ( 0U )
-# define PS2_DRIVER_IRQ     ( 1U )
-
-/* Macros */
-
-/* Typedefs */
+# define NUL     ( '\0' )
+# define NO_CHAR ( -1 )
 
 /* Public Functions */
 
+driver_status_t ps2_keyboard_driver_init( bool irq_enable );
+
 void ps2_keyboard_driver_interrupt_handler( int irq, int error, void *arg );
 
-driver_status_t ps2_keyboard_driver_init( int driver_type );
+char IRQ_keyboard_get_char( void );
 
 char polling_keyboard_get_char( void );
 

@@ -11,13 +11,15 @@
 
 #include "ps2_keyboard_driver.h"
 
+/* Includes */
+
 #include "common.h"
+#include "irq_handler.h"
 #include "printk.h"
 #include "vga_driver.h"
 
-#pragma region "Polling Keyboard Driver"
-
-#pragma region "Private Defines and Macros"
+/* Private Defines and Macros */
+#pragma region
 
 #define IO_WAIT_LEN ( 100U )
 
@@ -81,9 +83,95 @@
 // Scan Codes
 #define SCAN_CODE_SET2 ( 0x41U )
 
+#define KEY_RELEASED ( 0x80U )
+
+// Special Characters
+#define ESC ( 0x1B )
+#define BS  ( '\b' )
+#define TAB ( '\t' )
+#define LF  ( '\n' )
+
+// Modifier Keys
+#define CAPS   ( 0x3AU )
+#define L_SHFT ( 0x2AU )
+#define R_SHFT ( 0x36U )
+#define CTRL   ( 0x37U )
+#define ALT    ( 0x38U )
+
+// Check if the scan code is a modifier key
+#define IS_SHFT( x ) ( ( x ) == L_SHFT || ( x ) == R_SHFT )
+#define IS_CAPS( x ) ( ( x ) == CAPS )
+#define IS_CTRL( x ) ( ( x ) == CTRL )
+#define IS_ALT( x )  ( ( x ) == ALT )
+
+#define IS_MOD( x )                 ( IS_SHFT( x ) || IS_CAPS( x ) || IS_CTRL( x ) || IS_ALT( x ) )
+#define IS_CODE_KEY_RELEASE( curr ) ( ( curr ) & KEY_RELEASED )
+
+#define ASCII_TABLE_SIZE 128
+
 #pragma endregion
 
-#pragma region "Private Functions"
+/* Typedefs */
+
+typedef enum { RELEASED = 0, PRESSED = 1 } key_state_t;
+
+/* Global Variables */
+#pragma region
+
+// Standard ASCII Table with/without the shift key pressed
+char standard_ascii_table_LOWER[ASCII_TABLE_SIZE] = {
+    NUL,  ESC,  '1', '2',  '3', '4', '5', '6', '7', '8', '9', '0',  '-', '=', BS,  // First Row
+    TAB,  'q',  'w', 'e',  'r', 't', 'y', 'u', 'i', 'o', 'p', '[',  ']', LF,       // Second Row
+    CTRL, 'a',  's', 'd',  'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',           // Third Row
+    NUL,  '\\', 'z', 'x',  'c', 'v', 'b', 'n', 'm', ',', '.', '/',  NUL, '*',      // Fourth Row
+    ALT,  ' ',  NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,   NUL, NUL,      // Misc Keys
+};
+
+char standard_ascii_table_UPPER[ASCII_TABLE_SIZE] = {
+    NUL,  ESC, '!', '@',  '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', BS,  // First Row
+    TAB,  'Q', 'W', 'E',  'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', LF,       // Second Row
+    CTRL, 'A', 'S', 'D',  'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~',           // Third Row
+    NUL,  '|', 'Z', 'X',  'C', 'V', 'B', 'N', 'M', '<', '>', '?', NUL, '*',      // Fourth Row
+    ALT,  ' ', NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,  NUL, NUL,      // Misc Keys
+};
+
+// Caps Lock ASCII Table with/without the shift key pressed
+char caps_ascii_table_LOWER[ASCII_TABLE_SIZE] = {
+    NUL,  ESC,  '1', '2',  '3', '4', '5', '6', '7', '8', '9', '0',  '-', '=', BS,  // First Row
+    TAB,  'Q',  'W', 'E',  'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[',  ']', LF,       // Second Row
+    CTRL, 'A',  'S', 'D',  'F', 'G', 'H', 'J', 'K', 'L', ';', '\'', '`',           // Third Row
+    NUL,  '\\', 'Z', 'X',  'C', 'V', 'B', 'N', 'M', ',', '.', '/',  NUL, '*',      // Fourth Row
+    ALT,  ' ',  NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,   NUL, NUL,      // Misc Keys
+};
+
+char caps_ascii_table_UPPER[ASCII_TABLE_SIZE] = {
+    NUL,  ESC, '!', '@',  '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', BS,  // First Row
+    TAB,  'q', 'w', 'e',  'r', 't', 'y', 'u', 'i', 'o', 'p', '{', '}', LF,       // Second Row
+    CTRL, 'a', 's', 'd',  'f', 'g', 'h', 'j', 'k', 'l', ':', '"', '~',           // Third Row
+    NUL,  '|', 'z', 'x',  'c', 'v', 'b', 'n', 'm', '<', '>', '?', NUL, '*',      // Fourth Row
+    ALT,  ' ', NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,  NUL, NUL,      // Misc Keys
+};
+
+char *ascii_table_LOWER = standard_ascii_table_LOWER;
+char *ascii_table_UPPER = standard_ascii_table_UPPER;
+
+static key_state_t key_state = RELEASED;
+static key_state_t caps_state = RELEASED;
+static key_state_t shift_state = RELEASED;
+static key_state_t ctrl_state = RELEASED;
+static key_state_t alt_state = RELEASED;
+
+static uint8_t prev_code = 0, curr_code = 0;
+
+#define KEY_BUFFER_SIZE ( 0x100U )
+static char key_buffer[KEY_BUFFER_SIZE] = { 0 };
+static uint8_t key_buffer_input_idx = 0;
+static uint8_t key_buffer_output_idx = 0;
+
+#pragma endregion
+
+/* Private Functions */
+#pragma region
 
 // TODO: Check Command/Data flag in Status Register?
 
@@ -161,25 +249,147 @@ void keyboard_write( uint8_t byte )
     io_wait_n( IO_WAIT_LEN );
 }
 
+void VGA_display_hex_str( const char *s, uint8_t byte )
+{
+    uint8_t nibble;
+
+    VGA_display_str( s );
+    VGA_display_str( "0x" );
+
+    // Print the high nibble
+    nibble = ( byte & 0xF0 ) >> 4;
+    if ( nibble < 10 )
+    {
+        VGA_display_char( (char)( nibble + '0' ) );
+    }
+    else
+    {
+        VGA_display_char( (char)( nibble - 10 + 'A' ) );
+    }
+
+    // Print the low nibble
+    nibble = byte & 0x0F;
+    if ( nibble < 10 )
+    {
+        VGA_display_char( (char)( nibble + '0' ) );
+    }
+    else
+    {
+        VGA_display_char( (char)( nibble - 10 + 'A' ) );
+    }
+
+    VGA_display_char( '\n' );
+}
+
+int process_scan_code( int scan_code )
+{
+    char key = NUL;
+
+    // TODO: Caps lock turns off when shift is pressed?
+    // TODO: Fix how backspace works in the vga driver
+
+    // Save the previous scan code
+    prev_code = curr_code;
+
+    // Get the new scan code
+    curr_code = scan_code;
+
+    // DEBUG: Print the scan code
+    // VGA_display_hex_str( "Scan Code = ", curr_code );
+
+    // Check if the key was pressed or released
+    if ( IS_CODE_KEY_RELEASE( curr_code ) )
+    {
+        // Key was released
+        key_state = RELEASED;
+
+        switch ( curr_code - KEY_RELEASED )
+        {
+            case L_SHFT:
+            case R_SHFT:
+                // Shift key was released
+                shift_state = RELEASED;
+                break;
+
+            case CAPS:
+                // Caps lock key was released
+                caps_state = RELEASED;
+
+                // Update the ASCII table
+                ascii_table_LOWER = standard_ascii_table_LOWER;
+                ascii_table_UPPER = standard_ascii_table_UPPER;
+                break;
+
+            case CTRL:
+                // Control key was released
+                ctrl_state = RELEASED;
+                break;
+
+            case ALT:
+                // Alt key was released
+                alt_state = RELEASED;
+                break;
+
+            default:
+                break;
+        }
+
+        return NO_CHAR;
+    }
+
+    // Key was pressed
+    key_state = PRESSED;
+
+    // Check if the shift key was pressed/released
+    if ( IS_SHFT( curr_code ) )
+    {
+        // Key was pressed
+        shift_state = PRESSED;
+
+        return NO_CHAR;
+    }
+
+    // Check if the caps lock key was pressed/released
+    if ( IS_CAPS( curr_code ) )
+    {
+        // Toggle the caps lock state
+        caps_state = PRESSED;
+
+        // Update the ASCII table
+        ascii_table_LOWER = caps_ascii_table_LOWER;
+        ascii_table_UPPER = caps_ascii_table_UPPER;
+
+        return NO_CHAR;
+    }
+
+    // Make sure the key is valid
+    if ( curr_code >= ASCII_TABLE_SIZE )
+    {
+        OS_ERROR( "Invalid scan code? Code = 0x%X\n", curr_code );
+        return NO_CHAR;
+    }
+
+    // Check if the shift key was also pressed
+    if ( shift_state == PRESSED )
+    {
+        // Return the uppercase character
+        key = ascii_table_UPPER[curr_code];
+    }
+    else
+    {
+        // Return the lowercase character
+        key = ascii_table_LOWER[curr_code];
+    }
+
+    // Return the key!
+    return key;
+}
+
 #pragma endregion
 
 /* Public Functions */
 
-void ps2_keyboard_driver_interrupt_handler( int irq, int error, void *arg )
-{
-    // Ignore unused parameters
-    (void)irq;
-    (void)error;
-    (void)arg;
-
-    // Read the scan code
-    uint8_t curr_code = keyboard_read();
-
-    // Print the scan code
-    OS_INFO( "Scan Code = 0x%X", curr_code );
-}
-
-driver_status_t ps2_keyboard_driver_init( int driver_type )
+driver_status_t ps2_keyboard_driver_init( bool irq_enable )
 {
     uint8_t config_byte, status_byte;
 
@@ -200,7 +410,7 @@ driver_status_t ps2_keyboard_driver_init( int driver_type )
     config_byte &= ~( PORT1_CLK_DISABLE | PORT1_INT_EN | PORT2_INT_EN );
 
     // Enable interrupts if specified
-    if ( driver_type == PS2_DRIVER_IRQ )
+    if ( irq_enable )
     {
         // Enable port 1 interrupt
         config_byte |= PORT1_INT_EN;
@@ -315,238 +525,75 @@ driver_status_t ps2_keyboard_driver_init( int driver_type )
     // Enable port 1
     command_register_cmd( CMD_PORT_1_ENABLE );
 
+    // Enable interrupts if specified
+    if ( irq_enable )
+    {
+        // Set and enable the interrupt handler for the keyboard
+        IRQ_set_handler( IRQ1_KEYBOARD, ps2_keyboard_driver_interrupt_handler, NULL );
+
+        // Enable port 1 interrupt
+        IRQ_clear_mask( IRQ1_KEYBOARD );
+    }
+
     // Return success
     return SUCCESS;
 }
 
-#pragma endregion
-
-#pragma region "Scan Code Set 2 to ASCII"
-
-#pragma region "Private Defines and Macros"
-
-#define NUL ( '\0' )
-
-// Special Characters
-#define ESC ( 0x1B )
-#define BS  ( '\b' )
-#define TAB ( '\t' )
-#define LF  ( '\n' )
-
-// Modifier Keys
-#define CAPS   ( 0x3AU )
-#define L_SHFT ( 0x2AU )
-#define R_SHFT ( 0x36U )
-#define CTRL   ( 0x1DU )
-#define ALT    ( 0x38U )
-
-// Check if the scan code is a modifier key
-#define IS_SHFT( x ) ( ( x ) == L_SHFT || ( x ) == R_SHFT )
-#define IS_CAPS( x ) ( ( x ) == CAPS )
-#define IS_CTRL( x ) ( ( x ) == CTRL )
-#define IS_ALT( x )  ( ( x ) == ALT )
-
-#define IS_MOD( x ) ( IS_SHFT( x ) || IS_CAPS( x ) || IS_CTRL( x ) || IS_ALT( x ) )
-
-#define KEY_RELEASED ( 0x80U )
-
-#define IS_CODE_KEY_RELEASE( curr ) ( ( curr ) & KEY_RELEASED )
-
-// Uppercase and lowercase keys
-#define ASCII_TABLE_SIZE 128
-
-// Standard ASCII Table with/without the shift key pressed
-char standard_ascii_table_LOWER[ASCII_TABLE_SIZE] = {
-    NUL,  ESC,  '1', '2',  '3', '4', '5', '6', '7', '8', '9', '0',  '-', '=', BS,  // First Row
-    TAB,  'q',  'w', 'e',  'r', 't', 'y', 'u', 'i', 'o', 'p', '[',  ']', LF,       // Second Row
-    CTRL, 'a',  's', 'd',  'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',           // Third Row
-    NUL,  '\\', 'z', 'x',  'c', 'v', 'b', 'n', 'm', ',', '.', '/',  NUL, '*',      // Fourth Row
-    ALT,  ' ',  NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,   NUL, NUL,      // Misc Keys
-};
-
-char standard_ascii_table_UPPER[ASCII_TABLE_SIZE] = {
-    NUL,  ESC, '!', '@',  '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', BS,  // First Row
-    TAB,  'Q', 'W', 'E',  'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', LF,       // Second Row
-    CTRL, 'A', 'S', 'D',  'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~',           // Third Row
-    NUL,  '|', 'Z', 'X',  'C', 'V', 'B', 'N', 'M', '<', '>', '?', NUL, '*',      // Fourth Row
-    ALT,  ' ', NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,  NUL, NUL,      // Misc Keys
-};
-
-// Caps Lock ASCII Table with/without the shift key pressed
-char caps_ascii_table_LOWER[ASCII_TABLE_SIZE] = {
-    NUL,  ESC,  '1', '2',  '3', '4', '5', '6', '7', '8', '9', '0',  '-', '=', BS,  // First Row
-    TAB,  'Q',  'W', 'E',  'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[',  ']', LF,       // Second Row
-    CTRL, 'A',  'S', 'D',  'F', 'G', 'H', 'J', 'K', 'L', ';', '\'', '`',           // Third Row
-    NUL,  '\\', 'Z', 'X',  'C', 'V', 'B', 'N', 'M', ',', '.', '/',  NUL, '*',      // Fourth Row
-    ALT,  ' ',  NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,   NUL, NUL,      // Misc Keys
-};
-
-char caps_ascii_table_UPPER[ASCII_TABLE_SIZE] = {
-    NUL,  ESC, '!', '@',  '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', BS,  // First Row
-    TAB,  'q', 'w', 'e',  'r', 't', 'y', 'u', 'i', 'o', 'p', '{', '}', LF,       // Second Row
-    CTRL, 'a', 's', 'd',  'f', 'g', 'h', 'j', 'k', 'l', ':', '"', '~',           // Third Row
-    NUL,  '|', 'z', 'x',  'c', 'v', 'b', 'n', 'm', '<', '>', '?', NUL, '*',      // Fourth Row
-    ALT,  ' ', NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,  NUL, NUL,      // Misc Keys
-};
-
-#pragma endregion
-
-#pragma region "Global Variables"
-
-typedef enum { RELEASED = 0, PRESSED = 1 } key_state_t;
-
-char *ascii_table_LOWER = standard_ascii_table_LOWER;
-char *ascii_table_UPPER = standard_ascii_table_UPPER;
-
-static key_state_t key_state = RELEASED;
-static key_state_t caps_state = RELEASED;
-static key_state_t shift_state = RELEASED;
-static key_state_t ctrl_state = RELEASED;
-static key_state_t alt_state = RELEASED;
-
-static uint8_t prev_code = 0, curr_code = 0;
-
-#pragma endregion
-
-void VGA_display_hex_str( const char *s, uint8_t byte )
+void ps2_keyboard_driver_interrupt_handler( int irq, int error, void *arg )
 {
-    uint8_t nibble;
+    // Ignore inputs
+    (void)irq;
+    (void)error;
+    (void)arg;
 
-    VGA_display_str( s );
-    VGA_display_str( "0x" );
+    // Read the scan code
+    uint8_t curr_code = keyboard_read();
 
-    // Print the high nibble
-    nibble = ( byte & 0xF0 ) >> 4;
-    if ( nibble < 10 )
+    // Process the scan code
+    int key = process_scan_code( curr_code );
+
+    // Add the character to the buffer
+    if ( key != NO_CHAR )
     {
-        VGA_display_char( (char)( nibble + '0' ) );
+        // Add the character to the buffer (index variable type causes auto wrap around)
+        key_buffer[key_buffer_input_idx++] = (char)key;
+
+        printk( "Key = %c\n", key );
     }
-    else
+}
+
+char IRQ_keyboard_get_char( void )
+{
+    char key = NUL;
+
+    // Check if there is data to read
+    if ( key_buffer_output_idx != key_buffer_input_idx )
     {
-        VGA_display_char( (char)( nibble - 10 + 'A' ) );
+        // Get the next character (index variable type causes auto wrap around)
+        key = key_buffer[key_buffer_output_idx++];
     }
 
-    // Print the low nibble
-    nibble = byte & 0x0F;
-    if ( nibble < 10 )
-    {
-        VGA_display_char( (char)( nibble + '0' ) );
-    }
-    else
-    {
-        VGA_display_char( (char)( nibble - 10 + 'A' ) );
-    }
-
-    VGA_display_char( '\n' );
+    // Return the character
+    return key;
 }
 
 char polling_keyboard_get_char( void )
 {
-    char key = NUL;
+    int scan_code, key;
 
-    // TODO: Fix key release issues on modifier keys
-    // TODO: Fix how backspace works in the vga driver
-
-    while ( true )
+    // Poll the keyboard until a key is pressed
+    do
     {
-        // Save the previous scan code
-        prev_code = curr_code;
+        // Read the scan code
+        scan_code = keyboard_read();
 
-        // Wait for a scan code
-        curr_code = keyboard_read();
+        // Process the scan code
+        key = process_scan_code( scan_code );
 
-        // DEBUG: Print the scan code
-        // VGA_display_hex_str( "Scan Code = ", curr_code );
+    } while ( key == NO_CHAR );
 
-        // Check if the key was pressed or released
-        if ( IS_CODE_KEY_RELEASE( curr_code ) )
-        {
-            // Key was released
-            key_state = RELEASED;
-
-            switch ( curr_code - KEY_RELEASED )
-            {
-                case L_SHFT:
-                case R_SHFT:
-                    // Shift key was released
-                    shift_state = RELEASED;
-                    break;
-
-                case CAPS:
-                    // Caps lock key was released
-                    caps_state = RELEASED;
-
-                    // Update the ASCII table
-                    ascii_table_LOWER = standard_ascii_table_LOWER;
-                    ascii_table_UPPER = standard_ascii_table_UPPER;
-                    break;
-
-                case CTRL:
-                    // Control key was released
-                    ctrl_state = RELEASED;
-                    break;
-
-                case ALT:
-                    // Alt key was released
-                    alt_state = RELEASED;
-                    break;
-
-                default:
-                    break;
-            }
-
-            continue;
-        }
-
-        // Key was pressed
-        key_state = PRESSED;
-
-        // Check if the shift key was pressed/released
-        if ( IS_SHFT( curr_code ) )
-        {
-            // Key was pressed
-            shift_state = PRESSED;
-
-            continue;
-        }
-
-        // Check if the caps lock key was pressed/released
-        if ( IS_CAPS( curr_code ) )
-        {
-            // Toggle the caps lock state
-            caps_state = PRESSED;
-
-            // Update the ASCII table
-            ascii_table_LOWER = caps_ascii_table_LOWER;
-            ascii_table_UPPER = caps_ascii_table_UPPER;
-
-            continue;
-        }
-
-        // Make sure the key is valid
-        if ( curr_code >= ASCII_TABLE_SIZE )
-        {
-            OS_ERROR( "Invalid scan code? Code = 0x%X\n", curr_code );
-            continue;
-        }
-
-        // Check if the shift key was also pressed
-        if ( shift_state == PRESSED )
-        {
-            // Return the uppercase character
-            key = ascii_table_UPPER[curr_code];
-        }
-        else
-        {
-            // Return the lowercase character
-            key = ascii_table_LOWER[curr_code];
-        }
-
-        break;
-    }
-
-    // Return the key!
-    return key;
+    // Return the character
+    return (char)key;
 }
 
 #pragma endregion

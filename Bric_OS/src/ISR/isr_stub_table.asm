@@ -1,4 +1,7 @@
+global isr_stub_table
+
 extern exception_handler
+extern interrupt_handler
 
 %macro isr_err_stub 1
 isr_stub_%+%1:
@@ -8,7 +11,13 @@ isr_stub_%+%1:
 
 %macro isr_no_err_stub 1
 isr_stub_%+%1:
-    call exception_handler
+    push %1 ; Arg 1: ISR number
+    pop rdi
+
+    push 0 ; Arg 2: Error code
+    pop rsi
+
+    call interrupt_handler
     iretq
 %endmacro
 
@@ -45,11 +54,15 @@ isr_no_err_stub 29
 isr_err_stub    30
 isr_no_err_stub 31
 
-global isr_stub_table
+%assign i 32
+%rep    224
+    isr_no_err_stub i
+%assign i i+1
+%endrep
 
 isr_stub_table:
 %assign i 0
-%rep    32
+%rep    256
     dq isr_stub_%+i
 %assign i i+1
 %endrep

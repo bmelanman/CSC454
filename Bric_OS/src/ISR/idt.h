@@ -43,22 +43,12 @@ typedef struct __packed
     uint32_t reserved;   // Set to zero
 } idt_entry_t;
 
-// ITDR Struct
-typedef struct __packed
-{
-    uint16_t limit;  // Size of IDT in bytes - 1
-    uint64_t base;   // Base address of IDT
-} idtr_t;
-
 /* Global Variables */
 
 // Table of ISR stub function pointers
 extern uint64_t* isr_stub_table[];
 
 /* Public Functions */
-
-// Exception handler
-__noreturn void exception_handler( void );
 
 // Initialize the IDT
 void idt_init( void );

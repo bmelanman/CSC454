@@ -15,23 +15,17 @@
 /* Includes */
 
 # include "common.h"
+# include "isr_common.h"
 
 /* Defines */
 
-/* Macros */
-
-# define CLI() asm volatile( "cli" )
-# define STI() asm volatile( "sti" )
-
-/* Typedefs */
-
-typedef void ( *irq_handler_t )( int, int, void* );
+# define IRQ1_KEYBOARD ( 0x21U )
 
 /* Public Functions */
 
-void interrupt_handler( int irq, int error, void* arg );
+void interrupt_handler( int irq, int error );
 
-void exception_handler( void );
+void exception_handler( int error );
 
 driver_status_t IRQ_init( void );
 

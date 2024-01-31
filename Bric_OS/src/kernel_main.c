@@ -20,6 +20,9 @@ int system_initialization( void );
 
 int kernel_main( void )
 {
+    // Disable interrupts
+    CLI();
+
     // Run initialization
     if ( system_initialization() )
     {
@@ -27,12 +30,16 @@ int kernel_main( void )
         return 1;
     }
 
+    // Enable interrupts
+    STI();
+
     // Poll the keyboard driver and print the character to the screen
+    char c;
     while ( 1 )
     {
-        char c = polling_keyboard_get_char();
+        c = IRQ_keyboard_get_char();
 
-        if ( c != 0 )
+        if ( c != NUL )
         {
             printk( "%c", c );
         }
@@ -44,7 +51,7 @@ int kernel_main( void )
 int keyboard_init( void )
 {
     // Initialize the keyboard driver
-    if ( ps2_keyboard_driver_init( PS2_DRIVER_POLLING ) == FAILURE )
+    if ( ps2_keyboard_driver_init( true ) == FAILURE )
     {
         OS_ERROR( "Keyboard driver initialization failed!\n" );
         return 1;
@@ -76,14 +83,9 @@ int system_initialization( void )
 
     OS_INFO( "Beginning system initialization...\n" );
 
-    if ( keyboard_init() ) return 1;
-
     if ( ISR_init() ) return 1;
 
-    // Set and enable the interrupt handler for the keyboard
-    // IRQ_set_handler( PS2_DRIVER_IRQ, ps2_keyboard_driver_interrupt_handler, NULL );
-
-    // IRQ_set_handler( 0, interrupt_handler, NULL );
+    if ( keyboard_init() ) return 1;
 
     OS_INFO( "System initialization is complete!\n" );
 
