@@ -19,8 +19,8 @@ TMP_MNT	:= build/temp_mnt
 FS_MNT	:= build/rootfs
 
 # Source files
-LINK_LD	:= $(SRC_DIR)/linker.ld
-GRB_CFG	:= $(SRC_DIR)/grub.cfg
+LINK_LD	:= $(shell find $(SRC_DIR) -type f -name '*.ld')
+GRB_CFG	:= $(shell find $(SRC_DIR) -type f -name 'grub.cfg')
 
 # Get all C and ASM files as object files
 SOURCES	:= $(shell find $(SRC_DIR) -type f -name '*.c' -o -name '*.asm' ) \
@@ -52,6 +52,9 @@ INCLUDES 	:= -I$(LIB_DIR) -I$(TST_DIR) $(SRC_INCS)
 LD_FLAGS 	:= -nostdlib $(INCLUDES)
 CC_FLAGS 	:= -Wall -Wextra -g -ffreestanding $(LD_FLAGS)
 
+# QEMU flags
+QEMU_FLAGS	:= -s -d int,in_asm -D $(LOG_FILE) -no-reboot
+
 all: $(KERNEL_BIN)
 
 img: $(TARGET_IMG)
@@ -70,10 +73,10 @@ test:
 #	-drive format=raw,file=$(TARGET_IMG)
 
 run: clean $(TARGET_IMG)
-	printf "change vnc password\nroot\n" | qemu-system-$(ARCH) \
-		-s -no-reboot -d int,in_asm -D $(LOG_FILE) \
+	printf "change vnc password\nroot\n" | qemu-system-$(ARCH) $(QEMU_FLAGS) \
 		-monitor stdio -vnc :0,password=on \
-		-drive format=raw,file=$(TARGET_IMG) && echo ""
+		-drive format=raw,file=$(TARGET_IMG)
+	@echo ""
 
 $(TARGET_IMG): $(BLANK_IMG) $(KERNEL_BIN) $(GRB_CFG)
 	cp $(BLANK_IMG) $@
