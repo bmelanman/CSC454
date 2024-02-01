@@ -1,6 +1,6 @@
 /** @file kernel_main.c
  *
- * @brief A description of the module's purpose.
+ * @brief Main kernel implementation.
  *
  * @author Bryce Melander
  * @date Jan-08-2024
@@ -9,11 +9,11 @@
  * (See http://opensource.org/licenses/MIT for more details.)
  */
 
-#include "ISR/irq_handler.h"
 #include "common.h"
+#include "irq_handler.h"
+#include "multiboot2.h"
 #include "ps2_keyboard_driver.h"
 #include "splash.h"
-#include "tests.h"
 #include "vga_driver.h"
 
 int system_initialization( void );
@@ -32,6 +32,13 @@ int kernel_main( void )
 
     // Test printing an escape sequence
     // printk( "\033[2J" );  // Clear the screen
+
+    //// Test multiboot header parsing
+    // if ( multiboot_parse_tags() )
+    //{
+    //     OS_ERROR( "Multiboot header parsing failed!\n" );
+    //     return 1;
+    // }
 
     // Enable interrupts
     STI();
@@ -60,7 +67,7 @@ int VGA_init( void )
     return 0;
 }
 
-int keyboard_init( void )
+int KB_init( void )
 {
     // Initialize the keyboard driver
     if ( ps2_keyboard_driver_init( true ) == FAILURE )
@@ -99,18 +106,20 @@ int system_initialization( void )
 
     if ( ISR_init() ) return 1;
 
-    if ( keyboard_init() ) return 1;
+    if ( KB_init() ) return 1;
 
     OS_INFO( "System initialization is complete!\n" );
 
     // Wait for a second
     io_wait_n( (uint64_t)1e6 );
 
-    // Clear the screen
-    VGA_clear();
+    //// Clear the screen
+    // VGA_clear();
 
-    // Print the splash screen
-    splash_screen();
+    //// Print the splash screen
+    // splash_screen();
+
+    printk( "\n" );
 
     return 0;
 }
