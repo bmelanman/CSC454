@@ -1,6 +1,6 @@
 /** @file stdio.h
  *
- * @brief A description of the module's purpose.
+ * @brief Header for standard IO implementation.
  *
  * @author Bryce Melander
  * @date Jan-30-2024
