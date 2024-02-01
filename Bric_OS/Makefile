@@ -1,7 +1,7 @@
 # Makefile for Bric_OS
 # Created by bryc_wall on 12/29/2023
 
-LOG_FILE := qemu-system-x86_64.log
+LOG_FILE := ../misc/qemu-system-x86_64.log
 
 # Target OS parameters
 TARGET 	:= Bric_OS
