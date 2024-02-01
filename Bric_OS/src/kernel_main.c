@@ -30,20 +30,32 @@ int kernel_main( void )
         return 1;
     }
 
+    // Test printing an escape sequence
+    // printk( "\033[2J" );  // Clear the screen
+
     // Enable interrupts
     STI();
 
-    // Poll the keyboard driver and print the character to the screen
-    char c;
+    // Do nothing for now
     while ( 1 )
     {
-        c = IRQ_keyboard_get_char();
-
-        if ( c != NUL )
-        {
-            printk( "%c", c );
-        }
+        // Halt the CPU
+        HLT();
     }
+
+    return 0;
+}
+
+int VGA_init( void )
+{
+    // Initialize the VGA driver
+    if ( VGA_driver_init() == FAILURE )
+    {
+        OS_ERROR( "VGA driver initialization failed!\n" );
+        return 1;
+    }
+
+    OS_INFO( "VGA driver initialization is complete!\n" );
 
     return 0;
 }
@@ -82,6 +94,8 @@ int system_initialization( void )
     VGA_clear();
 
     OS_INFO( "Beginning system initialization...\n" );
+
+    if ( VGA_init() ) return 1;
 
     if ( ISR_init() ) return 1;
 

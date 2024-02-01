@@ -13,18 +13,27 @@
 
 #include <string.h>
 
+// TODO: Add support for arrow keys
+// TODO: Add support for commands (i.e. ^C, ^D, etc.)
+
 /* Private Defines and Macros */
 
 #define VGA_BUFFER ( (uint16_t *)0xB8000 )
+
+#define VGA_DATA_PORT_A ( 0x3D4U )
+#define VGA_DATA_PORT_B ( 0x3D5U )
+
 #define VGA_WIDTH  ( 80U )
 #define VGA_HEIGHT ( 25U )
 #define VGA_SIZE   ( VGA_WIDTH * VGA_HEIGHT )
 
-#define VGA_PUTC( ch, attrs )                                        \
-    ( VGA_BUFFER[GET_CURSOR_POS( vga_cursor.row, vga_cursor.col )] = \
-          ( (uint16_t)( ( ( (uint8_t)( attrs ) << 8 ) | (uint8_t)( ch ) ) ) ) )
-
-#define GET_CURSOR_POS( row, col ) ( ( ( row ) * VGA_WIDTH ) + ( col ) )
+#define CONVERT_POS( row, col )     ( ( ( row ) * VGA_WIDTH ) + ( col ) )
+#define CONVERT_CH_ATTR( ch, attr ) ( (uint16_t)( ( (uint8_t)( attr ) << 8 ) | (uint8_t)( ch ) ) )
+#define VGA_PUTC( ch, attrs )                                             \
+    ( VGA_BUFFER[CONVERT_POS( vga_cursor.pos.row, vga_cursor.pos.col )] = \
+          CONVERT_CH_ATTR( ( ch ), ( attrs ) ) )
+#define VGA_PUTC_DEFAULT( ch ) VGA_PUTC( ( ch ), VGA_CHAR_DEFAULT_ATTR )
+#define VGA_CLEAR_CHAR()       VGA_PUTC( 0, VGA_CHAR_DEFAULT_ATTR )
 
 #define TAB_LENGTH ( 4U )
 
@@ -38,63 +47,97 @@ typedef struct
 
 typedef struct
 {
-    uint8_t row;        // Row index
-    uint8_t col;        // Column index
-    vga_char_t v_char;  // Character and attributes
+    uint8_t row;  // Row index
+    uint8_t col;  // Column index
+} vga_pos_t;
+
+typedef struct
+{
+    vga_pos_t pos;        // Row and column indexes
+    vga_char_t vga_char;  // Character and attributes
 } vga_cursor_t;
-
-// VGA Character Attributes
-#define VGA_CHAR_BLINK_OFFSET 7
-#define VGA_CHAR_BKGND_OFFSET 4
-#define VGA_CHAR_INTNS_OFFSET 3
-#define VGA_CHAR_FRGND_OFFSET 0
-
-#define VGA_CHAR_ATTR( blink, intns, bkgnd, frgnd )         \
-    ( ( ( (uint8_t)( blink ) ) << VGA_CHAR_BLINK_OFFSET ) | \
-      ( ( (uint8_t)( intns ) ) << VGA_CHAR_INTNS_OFFSET ) | \
-      ( ( (uint8_t)( bkgnd ) ) << VGA_CHAR_BKGND_OFFSET ) | \
-      ( ( (uint8_t)( frgnd ) ) << VGA_CHAR_FRGND_OFFSET ) )
 
 #define ON  ( 1U )
 #define OFF ( 0U )
 
-#define BLINK_ON  ( ON )
-#define BLINK_OFF ( OFF )
-
-#define ENABLE_BLINK( attr )  ( ( attr ) | ( ON << VGA_CHAR_BLINK_OFFSET ) )
-#define DISABLE_BLINK( attr ) ( ( attr ) & ( ~( ON << VGA_CHAR_BLINK_OFFSET ) ) )
-
-#define INTNS_ON  ( ON )
-#define INTNS_OFF ( OFF )
-
-#define ENABLE_INTNS( attr )  ( ( attr ) | ( ON << VGA_CHAR_INTNS_OFFSET ) )
-#define DISABLE_INTNS( attr ) ( ( attr ) & ( ~( ON << VGA_CHAR_INTNS_OFFSET ) ) )
-
 // Default VGA Character
-#define VGA_CHAR_DEFAULT_ATTR \
-    VGA_CHAR_ATTR( BLINK_OFF, INTNS_OFF, VGA_COLOR_BLACK, VGA_COLOR_WHITE )
+#define VGA_CHAR_DEFAULT_ATTR VGA_CHAR_ATTR( OFF, OFF, VGA_COLOR_BLACK, VGA_COLOR_WHITE )
 
 // Cursor
-#define PRINT_CURSOR() VGA_PUTC( vga_cursor.v_char.ch, vga_cursor.v_char.attr )
+#define VGA_update_cursor() VGA_set_cursor_pos( vga_cursor.pos )
 
 /* Private Global Variables */
 
-static vga_cursor_t vga_cursor =
-    { .row = 0,
-      .col = 0,
-      .v_char = {
-          .ch = '_', .attr = VGA_CHAR_ATTR( BLINK_OFF, INTNS_OFF, VGA_COLOR_BLACK, VGA_COLOR_WHITE )
-      } };
-
-// Column index of the cursor when a newline occurs on each line
-// Return to the index if the newline is deleted
-static uint8_t newline_col[VGA_HEIGHT] = { 0 };
+static vga_cursor_t vga_cursor = {
+    .pos = { .row = 0, .col = 0 }, .vga_char = { .ch = '_', .attr = VGA_CHAR_DEFAULT_ATTR }
+};
 
 /* Private Functions */
 
-vga_char_t *VGA_get_char( uint8_t row, uint8_t col )
+#define LOW_BYTE( x )  ( (uint8_t)( ( x ) & 0xFF ) )
+#define HIGH_BYTE( x ) ( (uint8_t)( ( ( x ) >> 8 ) & 0xFF ) )
+
+void VGA_enable_cursor( void )
 {
-    return (vga_char_t *)( VGA_BUFFER + GET_CURSOR_POS( row, col ) );
+    // Set the cursor scanline start
+    outb( VGA_DATA_PORT_A, 0x0A );
+    outb( VGA_DATA_PORT_B, ( inb( VGA_DATA_PORT_B ) & 0xC0 ) | 0x00U );
+
+    // Set the cursor scanline end
+    outb( VGA_DATA_PORT_A, 0x0B );
+    outb( VGA_DATA_PORT_B, ( inb( VGA_DATA_PORT_B ) & 0xE0 ) | VGA_HEIGHT );
+
+    // Make sure the current character cell
+    VGA_PUTC( '\0', vga_cursor.vga_char.attr );
+}
+
+void VGA_disable_cursor( void )
+{
+    outb( VGA_DATA_PORT_A, 0xA );
+    outb( VGA_DATA_PORT_B, 0x20 );
+
+    VGA_CLEAR_CHAR();
+}
+
+vga_pos_t __unused VGA_get_cursor_pos( void )
+{
+    uint16_t pos = 0;
+
+    outb( VGA_DATA_PORT_A, 0x0F );
+    pos |= inb( VGA_DATA_PORT_B );
+
+    outb( VGA_DATA_PORT_A, 0x0E );
+    pos |= ( ( (uint16_t)inb( VGA_DATA_PORT_B ) ) << 8 );
+
+    vga_pos_t cursor_pos = {
+        .row = (uint8_t)( pos / VGA_WIDTH ), .col = (uint8_t)( pos % VGA_WIDTH )
+    };
+
+    return cursor_pos;
+}
+
+void VGA_set_cursor_pos( vga_pos_t pos )
+{
+    // Calculate the position
+    uint16_t pos_idx = CONVERT_POS( pos.row, pos.col );
+
+    // Send the low byte
+    outb( VGA_DATA_PORT_A, 0xF );
+    outb( VGA_DATA_PORT_B, LOW_BYTE( pos_idx ) );
+
+    // Send the high byte
+    outb( VGA_DATA_PORT_A, 0xE );
+    outb( VGA_DATA_PORT_B, HIGH_BYTE( pos_idx ) );
+}
+
+char VGA_get_char( uint8_t row, uint8_t col )
+{
+    return (char)( (vga_char_t *)( VGA_BUFFER + CONVERT_POS( row, col ) ) )->ch;
+}
+
+char VGA_get_char_at_cursor( void )
+{
+    return VGA_get_char( vga_cursor.pos.row, vga_cursor.pos.col );
 }
 
 void VGA_scroll( uint8_t lines )
@@ -112,11 +155,11 @@ void VGA_scroll( uint8_t lines )
         VGA_clear();
 
         // Set the cursor to the top left
-        vga_cursor.row = 0;
-        vga_cursor.col = 0;
+        vga_cursor.pos.row = 0;
+        vga_cursor.pos.col = 0;
 
         // Update the cursor
-        PRINT_CURSOR();
+        VGA_update_cursor();
 
         return;
     }
@@ -134,131 +177,167 @@ void VGA_scroll( uint8_t lines )
     );
 
     // Move the cursor appropriately
-    vga_cursor.row = ( vga_cursor.row > lines ) ? ( vga_cursor.row - lines ) : 0;
+    vga_cursor.pos.row = ( vga_cursor.pos.row > lines ) ? ( vga_cursor.pos.row - lines ) : 0;
 
     // Update the cursor
-    PRINT_CURSOR();
+    VGA_update_cursor();
+}
+
+void VGA_process_backspace( void )
+{
+    // Check if we're at the beginning of the line
+    if ( vga_cursor.pos.col == 0 )
+    {
+        // Check if we're at the beginning of the screen
+        if ( vga_cursor.pos.row == 0 )
+        {
+            return;
+        }
+
+        // Move the cursor to the end of the previous line
+        vga_cursor.pos.row--;
+        vga_cursor.pos.col = VGA_WIDTH;
+    }
+
+    // Move the cursor back further until we find the last character
+    do
+    {
+        vga_cursor.pos.col--;
+    } while ( VGA_get_char_at_cursor() == '\0' && vga_cursor.pos.col > 0 );
+
+    // Clear the character
+    VGA_CLEAR_CHAR();
 }
 
 /* Public Functions */
 
 void VGA_clear( void )
 {
-    size_t len = (size_t)( VGA_WIDTH * VGA_HEIGHT * 2 );
-
-    // Clear the VGA buffer
-    memset( VGA_BUFFER, 0, len );
-
-    // Clear the newline column index
-    memset( newline_col, 0, VGA_HEIGHT );
+    // Clear the VGA buffer (2 bytes per character)
+    memset( VGA_BUFFER, 0, (uint16_t)( VGA_SIZE * 2 ) );
 
     // Reset the cursor position
-    vga_cursor.row = 0;
-    vga_cursor.col = 0;
+    vga_cursor.pos.row = 0;
+    vga_cursor.pos.col = 0;
 
     // Update the cursor
-    PRINT_CURSOR();
+    VGA_update_cursor();
 }
 
-void vga_display_char_attr( char c, uint8_t attr )
+driver_status_t VGA_driver_init( void )
+{
+    // Clear the screen
+    VGA_clear();
+
+    // Enable the cursor
+    VGA_enable_cursor();
+
+    return SUCCESS;
+}
+
+void VGA_display_char_attr( char c, uint8_t attr )
 {
     // Handle special characters
     switch ( c )
     {
         // Return
-        case '\r':
-            // Clear the current cursor
+        case CR:
+            // Use a space as a placeholder
             VGA_PUTC( ' ', attr );
             // Reset the cursor position
-            vga_cursor.col = 0;
+            vga_cursor.pos.col = 0;
 
             break;
 
         // Newline
-        case '\n':
-            // Save the column index
-            newline_col[vga_cursor.row] = vga_cursor.col;
-            // Clear the current cursor
+        case LF:
+            // Use a space as a placeholder
             VGA_PUTC( ' ', attr );
             // Trick the logic into thinking we need to move to the next line
-            vga_cursor.col = VGA_WIDTH;
+            vga_cursor.pos.col = VGA_WIDTH;
 
             break;
 
         // Tab
-        case '\t':
-            // Clear the current cursor
+        case TAB:
+            // Use a space as a placeholder
             VGA_PUTC( ' ', attr );
             // Increment the cursor
-            vga_cursor.col += TAB_LENGTH;
+            vga_cursor.pos.col += TAB_LENGTH;
 
             break;
 
         // Backspace
-        case '\b':
-            // Clear the current cursor
-            VGA_PUTC( ' ', attr );
-            // Decrement the cursor
-            if ( vga_cursor.col > 0 )
-            {
-                vga_cursor.col--;
-            }
-            else
-            {
-                if ( vga_cursor.row > 0 )
-                {
-                    vga_cursor.row--;
-                }
-                else
-                {
-                    vga_cursor.row = VGA_HEIGHT - 1;
-                }
-                // Move to the end of the previous line
-                vga_cursor.col = newline_col[vga_cursor.row];
-            }
+        case BS:
+            VGA_process_backspace();
 
             break;
 
+        // Escape Character
+        case ESC:
+            // TODO: Handle escape sequences
+            VGA_display_str( "Escape sequences are not yet supported! :(\n" );
+
+            return;
+
+        // Regular characters
         default:
             // Print the character
             VGA_PUTC( c, attr );
             // Increment the cursor
-            vga_cursor.col++;
+            vga_cursor.pos.col++;
 
             break;
     }
 
     // Check if we need to move to the next line
-    if ( vga_cursor.col >= VGA_WIDTH )
+    if ( vga_cursor.pos.col >= VGA_WIDTH )
     {
-        vga_cursor.col = 0;
-        vga_cursor.row++;
+        vga_cursor.pos.col = 0;
+        vga_cursor.pos.row++;
 
         // Check if we need to scroll
-        if ( vga_cursor.row >= VGA_HEIGHT )
+        if ( vga_cursor.pos.row >= VGA_HEIGHT )
         {
             VGA_scroll( 1 );
-            vga_cursor.row = VGA_HEIGHT - 1;
+            vga_cursor.pos.row = VGA_HEIGHT - 1;
         }
     }
 }
 
-void vga_display_str_attr( const char *s, uint8_t attr )
+void VGA_display_str_attr( const char *s, uint8_t attr )
 {
     size_t i, len = strlen( s );
 
     // Print the string
     for ( i = 0; i < len; i++ )
     {
-        vga_display_char_attr( s[i], attr );
+        VGA_display_char_attr( s[i], attr );
     }
-
-    // Update the cursor
-    PRINT_CURSOR();
 }
 
-void VGA_display_char( char c ) { vga_display_char_attr( c, VGA_CHAR_DEFAULT_ATTR ); }
+void VGA_display_char( char c )
+{
+    // Clear the current cursor
+    VGA_disable_cursor();
 
-void VGA_display_str( const char *s ) { vga_display_str_attr( s, VGA_CHAR_DEFAULT_ATTR ); }
+    VGA_display_char_attr( c, VGA_CHAR_DEFAULT_ATTR );
+
+    // Update the cursor
+    VGA_enable_cursor();
+    VGA_update_cursor();
+}
+
+void VGA_display_str( const char *s )
+{
+    // Clear the current cursor
+    VGA_disable_cursor();
+
+    VGA_display_str_attr( s, VGA_CHAR_DEFAULT_ATTR );
+
+    // Update the cursor
+    VGA_enable_cursor();
+    VGA_update_cursor();
+}
 
 /*** End of File ***/
