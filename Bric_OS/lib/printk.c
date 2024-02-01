@@ -56,6 +56,29 @@ void format_llu_base_n( char *str, ullong n, uint8_t base, uint8_t text_case )
         return;
     }
 
+    // Recursively format the number, starting with the most significant digit
+    if ( n / base )
+    {
+        format_llu_base_n( str, n / base, base, text_case );
+    }
+    else
+    {
+        // Before the first digit, add the base prefix if necessary
+        switch ( base )
+        {
+            case BASE_8:
+                format_str( str, "0o" );
+                break;
+
+            case BASE_16:
+                format_str( str, "0x" );
+                break;
+
+            default:
+                break;
+        }
+    }
+
     uint8_t digit_d = (uint8_t)( n % base );
 
     if ( digit_d < 10 )
@@ -65,11 +88,6 @@ void format_llu_base_n( char *str, ullong n, uint8_t base, uint8_t text_case )
     else
     {
         format_char( str, (char)( digit_d - 10 + 'A' + text_case ) );
-    }
-
-    if ( n / base )
-    {
-        format_llu_base_n( str, n / base, base, text_case );
     }
 }
 
