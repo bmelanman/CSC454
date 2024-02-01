@@ -85,26 +85,39 @@
 
 #define KEY_RELEASED ( 0x80U )
 
-// Special Characters
-#define ESC ( 0x1B )
-#define BS  ( '\b' )
-#define TAB ( '\t' )
-#define LF  ( '\n' )
-
 // Modifier Keys
-#define CAPS   ( 0x3AU )
-#define L_SHFT ( 0x2AU )
-#define R_SHFT ( 0x36U )
-#define CTRL   ( 0x37U )
-#define ALT    ( 0x38U )
+#define CAPS ( 0x3AU )
+#define LSFT ( 0x2AU )
+#define RSFT ( 0x36U )
+#define CTRL ( 0x1DU )
+#define ALT  ( 0x38U )
+
+// Arrow Keys
+#define UP  ( 0x48 )
+#define DN  ( 0x4B )
+#define LFT ( 0x4D )
+#define RHT ( 0x50 )
+
+// Function Keys
+#define F1  ( 'F' )
+#define F2  ( 'F' )
+#define F3  ( 'F' )
+#define F4  ( 'F' )
+#define F5  ( 'F' )
+#define F6  ( 'F' )
+#define F7  ( 'F' )
+#define F8  ( 'F' )
+#define F9  ( 'F' )
+#define F10 ( 'F' )
 
 // Check if the scan code is a modifier key
-#define IS_SHFT( x ) ( ( x ) == L_SHFT || ( x ) == R_SHFT )
-#define IS_CAPS( x ) ( ( x ) == CAPS )
-#define IS_CTRL( x ) ( ( x ) == CTRL )
-#define IS_ALT( x )  ( ( x ) == ALT )
+#define IS_SHFT( x )  ( ( x ) == LSFT || ( x ) == RSFT )
+#define IS_CAPS( x )  ( ( x ) == CAPS )
+#define IS_CTRL( x )  ( ( x ) == CTRL )
+#define IS_ALT( x )   ( ( x ) == ALT )
+#define IS_ARROW( x ) ( ( x ) == UP || ( x ) == DN || ( x ) == LFT || ( x ) == RHT )
 
-#define IS_MOD( x )                 ( IS_SHFT( x ) || IS_CAPS( x ) || IS_CTRL( x ) || IS_ALT( x ) )
+#define IS_MOD( x )                 ( IS_SHFT( x ) || IS_CAPS( x ) || IS_CTRL( x ) || IS_ALT( x ) || IS_ARROW( x ) )
 #define IS_CODE_KEY_RELEASE( curr ) ( ( curr ) & KEY_RELEASED )
 
 #define ASCII_TABLE_SIZE 128
@@ -120,36 +133,80 @@ typedef enum { RELEASED = 0, PRESSED = 1 } key_state_t;
 
 // Standard ASCII Table with/without the shift key pressed
 char standard_ascii_table_LOWER[ASCII_TABLE_SIZE] = {
-    NUL,  ESC,  '1', '2',  '3', '4', '5', '6', '7', '8', '9', '0',  '-', '=', BS,  // First Row
-    TAB,  'q',  'w', 'e',  'r', 't', 'y', 'u', 'i', 'o', 'p', '[',  ']', LF,       // Second Row
-    CTRL, 'a',  's', 'd',  'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',           // Third Row
-    NUL,  '\\', 'z', 'x',  'c', 'v', 'b', 'n', 'm', ',', '.', '/',  NUL, '*',      // Fourth Row
-    ALT,  ' ',  NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,   NUL, NUL,      // Misc Keys
+    NUL,  ESC, '1',  '2',  '3', '4',  '5', '6',  // 0x00 - 0x07
+    '7',  '8', '9',  '0',  '-', '=',  BS,  TAB,  // 0x08 - 0x0F
+    'q',  'w', 'e',  'r',  't', 'y',  'u', 'i',  // 0x10 - 0x17
+    'o',  'p', '[',  ']',  LF,  CTRL, 'a', 's',  // 0x18 - 0x1F
+    'd',  'f', 'g',  'h',  'j', 'k',  'l', ';',  // 0x20 - 0x27
+    '\'', '`', NUL,  '\\', 'z', 'x',  'c', 'v',  // 0x28 - 0x2F
+    'b',  'n', 'm',  ',',  '.', '/',  NUL, '*',  // 0x30 - 0x37
+    ALT,  ' ', CAPS, F1,   F2,  F3,   F4,  F5,   // 0x38 - 0x3F
+    F6,   F7,  F8,   F9,   F10, NUL,  NUL, NUL,  // 0x40 - 0x47
+    UP,   NUL, NUL,  LFT,  NUL, RHT,  NUL, NUL,  // 0x48 - 0x4F
+    DN,   NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x50 - 0x57
+    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
+    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x60 - 0x67
+    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x68 - 0x6F
+    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x70 - 0x77
+    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL   // 0x78 - 0x7F
 };
 
 char standard_ascii_table_UPPER[ASCII_TABLE_SIZE] = {
-    NUL,  ESC, '!', '@',  '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', BS,  // First Row
-    TAB,  'Q', 'W', 'E',  'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', LF,       // Second Row
-    CTRL, 'A', 'S', 'D',  'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~',           // Third Row
-    NUL,  '|', 'Z', 'X',  'C', 'V', 'B', 'N', 'M', '<', '>', '?', NUL, '*',      // Fourth Row
-    ALT,  ' ', NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,  NUL, NUL,      // Misc Keys
+    NUL, ESC, '!',  '@', '#', '$',  '%', '^',  // 0x00 - 0x07
+    '&', '*', '(',  ')', '_', '+',  BS,  TAB,  // 0x08 - 0x0F
+    'Q', 'W', 'E',  'R', 'T', 'Y',  'U', 'I',  // 0x10 - 0x17
+    'O', 'P', '{',  '}', LF,  CTRL, 'A', 'S',  // 0x18 - 0x1F
+    'D', 'F', 'G',  'H', 'J', 'K',  'L', ':',  // 0x20 - 0x27
+    '"', '~', NUL,  '|', 'Z', 'X',  'C', 'V',  // 0x28 - 0x2F
+    'B', 'N', 'M',  '<', '>', '?',  NUL, '*',  // 0x30 - 0x37
+    ALT, ' ', CAPS, F1,  F2,  F3,   F4,  F5,   // 0x38 - 0x3F
+    F6,  F7,  F8,   F9,  F10, NUL,  NUL, NUL,  // 0x40 - 0x47
+    UP,  NUL, NUL,  LFT, NUL, RHT,  NUL, NUL,  // 0x48 - 0x4F
+    DN,  NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x50 - 0x57
+    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
+    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x60 - 0x67
+    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x68 - 0x6F
+    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x70 - 0x77
+    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL   // 0x78 - 0x7F
 };
 
 // Caps Lock ASCII Table with/without the shift key pressed
 char caps_ascii_table_LOWER[ASCII_TABLE_SIZE] = {
-    NUL,  ESC,  '1', '2',  '3', '4', '5', '6', '7', '8', '9', '0',  '-', '=', BS,  // First Row
-    TAB,  'Q',  'W', 'E',  'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[',  ']', LF,       // Second Row
-    CTRL, 'A',  'S', 'D',  'F', 'G', 'H', 'J', 'K', 'L', ';', '\'', '`',           // Third Row
-    NUL,  '\\', 'Z', 'X',  'C', 'V', 'B', 'N', 'M', ',', '.', '/',  NUL, '*',      // Fourth Row
-    ALT,  ' ',  NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,   NUL, NUL,      // Misc Keys
+    NUL,  ESC, '1',  '2',  '3', '4',  '5', '6',  // 0x00 - 0x07
+    '7',  '8', '9',  '0',  '-', '=',  BS,  TAB,  // 0x08 - 0x0F
+    'Q',  'W', 'E',  'R',  'T', 'Y',  'U', 'I',  // 0x10 - 0x17
+    'O',  'P', '[',  ']',  LF,  CTRL, 'A', 'S',  // 0x18 - 0x1F
+    'D',  'F', 'G',  'H',  'J', 'K',  'L', ';',  // 0x20 - 0x27
+    '\'', '`', NUL,  '\\', 'Z', 'X',  'C', 'V',  // 0x28 - 0x2F
+    'B',  'N', 'M',  ',',  '.', '/',  NUL, '*',  // 0x30 - 0x37
+    ALT,  ' ', CAPS, F1,   F2,  F3,   F4,  F5,   // 0x38 - 0x3F
+    F6,   F7,  F8,   F9,   F10, NUL,  NUL, NUL,  // 0x40 - 0x47
+    UP,   NUL, NUL,  LFT,  NUL, RHT,  NUL, NUL,  // 0x48 - 0x4F
+    DN,   NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x50 - 0x57
+    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
+    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x60 - 0x67
+    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x68 - 0x6F
+    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x70 - 0x77
+    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL   // 0x78 - 0x7F
 };
 
 char caps_ascii_table_UPPER[ASCII_TABLE_SIZE] = {
-    NUL,  ESC, '!', '@',  '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', BS,  // First Row
-    TAB,  'q', 'w', 'e',  'r', 't', 'y', 'u', 'i', 'o', 'p', '{', '}', LF,       // Second Row
-    CTRL, 'a', 's', 'd',  'f', 'g', 'h', 'j', 'k', 'l', ':', '"', '~',           // Third Row
-    NUL,  '|', 'z', 'x',  'c', 'v', 'b', 'n', 'm', '<', '>', '?', NUL, '*',      // Fourth Row
-    ALT,  ' ', NUL, CAPS, NUL, NUL, NUL, NUL, NUL, NUL, NUL, LF,  NUL, NUL,      // Misc Keys
+    NUL, ESC, '!',  '@', '#', '$',  '%', '^',  // 0x00 - 0x07
+    '&', '*', '(',  ')', '_', '+',  BS,  TAB,  // 0x08 - 0x0F
+    'q', 'w', 'e',  'r', 't', 'y',  'u', 'i',  // 0x10 - 0x17
+    'o', 'p', '{',  '}', LF,  CTRL, 'a', 's',  // 0x18 - 0x1F
+    'd', 'f', 'g',  'h', 'j', 'k',  'l', ':',  // 0x20 - 0x27
+    '"', '~', NUL,  '|', 'z', 'x',  'c', 'v',  // 0x28 - 0x2F
+    'b', 'n', 'm',  '<', '>', '?',  NUL, '*',  // 0x30 - 0x37
+    ALT, ' ', CAPS, F1,  F2,  F3,   F4,  F5,   // 0x38 - 0x3F
+    F6,  F7,  F8,   F9,  F10, NUL,  NUL, NUL,  // 0x40 - 0x47
+    UP,  NUL, NUL,  LFT, NUL, RHT,  NUL, NUL,  // 0x48 - 0x4F
+    DN,  NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x50 - 0x57
+    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
+    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x60 - 0x67
+    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x68 - 0x6F
+    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x70 - 0x77
+    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL   // 0x78 - 0x7F
 };
 
 char *ascii_table_LOWER = standard_ascii_table_LOWER;
@@ -162,11 +219,6 @@ static key_state_t ctrl_state = RELEASED;
 static key_state_t alt_state = RELEASED;
 
 static uint8_t prev_code = 0, curr_code = 0;
-
-#define KEY_BUFFER_SIZE ( 0x100U )
-static char key_buffer[KEY_BUFFER_SIZE] = { 0 };
-static uint8_t key_buffer_input_idx = 0;
-static uint8_t key_buffer_output_idx = 0;
 
 #pragma endregion
 
@@ -249,44 +301,11 @@ void keyboard_write( uint8_t byte )
     io_wait_n( IO_WAIT_LEN );
 }
 
-void VGA_display_hex_str( const char *s, uint8_t byte )
-{
-    uint8_t nibble;
-
-    VGA_display_str( s );
-    VGA_display_str( "0x" );
-
-    // Print the high nibble
-    nibble = ( byte & 0xF0 ) >> 4;
-    if ( nibble < 10 )
-    {
-        VGA_display_char( (char)( nibble + '0' ) );
-    }
-    else
-    {
-        VGA_display_char( (char)( nibble - 10 + 'A' ) );
-    }
-
-    // Print the low nibble
-    nibble = byte & 0x0F;
-    if ( nibble < 10 )
-    {
-        VGA_display_char( (char)( nibble + '0' ) );
-    }
-    else
-    {
-        VGA_display_char( (char)( nibble - 10 + 'A' ) );
-    }
-
-    VGA_display_char( '\n' );
-}
-
 int process_scan_code( int scan_code )
 {
     char key = NUL;
 
     // TODO: Caps lock turns off when shift is pressed?
-    // TODO: Fix how backspace works in the vga driver
 
     // Save the previous scan code
     prev_code = curr_code;
@@ -305,8 +324,8 @@ int process_scan_code( int scan_code )
 
         switch ( curr_code - KEY_RELEASED )
         {
-            case L_SHFT:
-            case R_SHFT:
+            case LSFT:
+            case RSFT:
                 // Shift key was released
                 shift_state = RELEASED;
                 break;
@@ -340,49 +359,67 @@ int process_scan_code( int scan_code )
     // Key was pressed
     key_state = PRESSED;
 
-    // Check if the shift key was pressed/released
-    if ( IS_SHFT( curr_code ) )
+    switch ( curr_code )
     {
-        // Key was pressed
-        shift_state = PRESSED;
+        case LSFT:
+        case RSFT:
+            // Key was pressed
+            shift_state = PRESSED;
 
-        return NO_CHAR;
+            return NO_CHAR;
+
+        case CAPS:
+            // Toggle the caps lock state
+            caps_state = PRESSED;
+
+            // Update the ASCII table
+            ascii_table_LOWER = caps_ascii_table_LOWER;
+            ascii_table_UPPER = caps_ascii_table_UPPER;
+
+            return NO_CHAR;
+
+        case CTRL:
+            // Key was pressed
+            ctrl_state = PRESSED;
+
+            return NO_CHAR;
+
+        case ALT:
+            // Key was pressed
+            alt_state = PRESSED;
+
+            return NO_CHAR;
+
+        case UP:
+        case DN:
+        case LFT:
+        case RHT:
+            // TODO: Implement arrow keys
+            return NO_CHAR;
+
+        default:
+            // Make sure the key is valid
+            if ( curr_code >= ASCII_TABLE_SIZE )
+            {
+                OS_ERROR( "Invalid scan code? Code = 0x%X\n", curr_code );
+                return NO_CHAR;
+            }
+
+            // Check if the shift key was also pressed
+            if ( shift_state == PRESSED )
+            {
+                // Return the uppercase character
+                key = ascii_table_UPPER[curr_code];
+            }
+            else
+            {
+                // Return the lowercase character
+                key = ascii_table_LOWER[curr_code];
+            }
+
+            // Return the key!
+            return key;
     }
-
-    // Check if the caps lock key was pressed/released
-    if ( IS_CAPS( curr_code ) )
-    {
-        // Toggle the caps lock state
-        caps_state = PRESSED;
-
-        // Update the ASCII table
-        ascii_table_LOWER = caps_ascii_table_LOWER;
-        ascii_table_UPPER = caps_ascii_table_UPPER;
-
-        return NO_CHAR;
-    }
-
-    // Make sure the key is valid
-    if ( curr_code >= ASCII_TABLE_SIZE )
-    {
-        OS_ERROR( "Invalid scan code? Code = 0x%X\n", curr_code );
-        return NO_CHAR;
-    }
-
-    // Check if the shift key was also pressed
-    if ( shift_state == PRESSED )
-    {
-        // Return the uppercase character
-        key = ascii_table_UPPER[curr_code];
-    }
-    else
-    {
-        // Return the lowercase character
-        key = ascii_table_LOWER[curr_code];
-    }
-
-    // Return the key!
-    return key;
 }
 
 #pragma endregion
@@ -555,26 +592,11 @@ void ps2_keyboard_driver_interrupt_handler( int irq, int error, void *arg )
     // Add the character to the buffer
     if ( key != NO_CHAR )
     {
-        // Add the character to the buffer (index variable type causes auto wrap around)
-        key_buffer[key_buffer_input_idx++] = (char)key;
+        // TODO: Add the character to the stdio buffer
 
-        printk( "Key = %c\n", key );
+        // Display the character on the screen
+        VGA_display_char( (char)key );
     }
-}
-
-char IRQ_keyboard_get_char( void )
-{
-    char key = NUL;
-
-    // Check if there is data to read
-    if ( key_buffer_output_idx != key_buffer_input_idx )
-    {
-        // Get the next character (index variable type causes auto wrap around)
-        key = key_buffer[key_buffer_output_idx++];
-    }
-
-    // Return the character
-    return key;
 }
 
 char polling_keyboard_get_char( void )

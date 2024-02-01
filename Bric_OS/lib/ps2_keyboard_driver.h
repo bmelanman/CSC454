@@ -18,7 +18,6 @@
 
 /* Defines */
 
-# define NUL     ( '\0' )
 # define NO_CHAR ( -1 )
 
 /* Public Functions */
