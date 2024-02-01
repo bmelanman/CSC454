@@ -11,10 +11,13 @@
 
 #include "vga_driver.h"
 
-#include <string.h>
-
 // TODO: Add support for arrow keys
 // TODO: Add support for commands (i.e. ^C, ^D, etc.)
+
+/* Includes */
+
+#include "common.h"
+#include "isr_common.h"
 
 /* Private Defines and Macros */
 
@@ -235,6 +238,9 @@ driver_status_t VGA_driver_init( void )
     return SUCCESS;
 }
 
+// TODO: Fix any race conditions
+// TODO: Add support for escape sequences
+// TODO: Add support for moving the cursor (i.e. move it to delete a previous character, etc.)
 void VGA_display_char_attr( char c, uint8_t attr )
 {
     // Handle special characters
