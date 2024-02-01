@@ -1,6 +1,6 @@
 /** @file printk.c
  *
- * @brief A description of the module's purpose.
+ * @brief Kernel print function implementation.
  *
  * @author Bryce Melander
  * @date Jan-09-2024

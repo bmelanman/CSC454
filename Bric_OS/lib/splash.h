@@ -1,6 +1,6 @@
 /** @file splash.h
  *
- * @brief A description of the module's purpose.
+ * @brief Header for the splash screen.
  *
  * @author Bryce Melander
  * @date Jan-19-2024

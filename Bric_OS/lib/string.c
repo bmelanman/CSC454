@@ -1,6 +1,6 @@
 /** @file string.c
  *
- * @brief A description of the module's purpose.
+ * @brief String manipulation functions.
  *
  * @author Bryce Melander
  * @date Jan-08-2024

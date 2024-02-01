@@ -1,6 +1,6 @@
 /** @file gdt.c
  *
- * @brief A description of the module's purpose.
+ * @brief Global Descriptor Table Implementation.
  *
  * @author Bryce Melander
  * @date Jan-25-2024
@@ -102,8 +102,7 @@ void encode_gdt_entry( uint8_t *target, gdt_entry_t source )
     if ( source.limit > GDT_MAX_LIMIT )
     {
         OS_ERROR(
-            "Limit is '0x%X', GDT cannot encode limits larger than 0x%X!", source.limit,
-            GDT_MAX_LIMIT
+            "Limit is '%X', GDT cannot encode limits larger than %X!", source.limit, GDT_MAX_LIMIT
         );
     }
 

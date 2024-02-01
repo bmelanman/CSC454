@@ -1,6 +1,6 @@
 /** @file string.h
  *
- * @brief A description of the module's purpose.
+ * @brief Header for string manipulation functions.
  *
  * @author Bryce Melander
  * @date Jan-08-2024

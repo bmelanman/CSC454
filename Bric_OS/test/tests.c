@@ -1,6 +1,6 @@
 /** @file tests.c
  *
- * @brief A description of the module's purpose.
+ * @brief Test for various kernel functions.
  *
  * @author Bryce Melander
  * @date Jan-18-2024
@@ -37,7 +37,7 @@ void test_printk( void )
     printk( "  UINT_MAX........%u                    \n", UINT_MAX );
     printk( "                                        \n" );
     printk( "Testing %%X:                            \n" );
-    printk( "  0x12345678......0x%X                  \n", 0x12345678 );
+    printk( "  0x12345678......%X                  \n", 0x12345678 );
     printk( "                                        \n" );
     printk( "Testing %%c:                            \n" );
     printk( "  Test character..%c                    \n", '@' );
@@ -58,19 +58,19 @@ void test_printk( void )
     printk( "  SHRT_MIN.......%hd                    \n", SHRT_MIN );
     printk( "  SHRT_MAX........%hd                   \n", SHRT_MAX );
     printk( "  USHRT_MAX.......%hu                   \n", USHRT_MAX );
-    printk( "  USHRT_MAX.......0x%hx                 \n", USHRT_MAX );
+    printk( "  USHRT_MAX.......%hx                 \n", USHRT_MAX );
     printk( "                                        \n" );
     printk( "Testing %%l[dux]:                       \n" );
     printk( "  LONG_MIN.......%ld                    \n", LONG_MIN );
     printk( "  LONG_MAX........%ld                   \n", LONG_MAX );
     printk( "  ULONG_MAX.......%lu                   \n", ULONG_MAX );
-    printk( "  ULONG_MAX.......0x%lx                 \n", ULONG_MAX );
+    printk( "  ULONG_MAX.......%lx                 \n", ULONG_MAX );
     printk( "                                        \n" );
     printk( "Testing %%q[dux]:                       \n" );
     printk( "  LLONG_MIN......%qd                    \n", LLONG_MIN );
     printk( "  LLONG_MAX.......%qd                   \n", LLONG_MAX );
     printk( "  ULLONG_MAX......%qu                   \n", ULLONG_MAX );
-    printk( "  ULLONG_MAX......0x%qx                 \n", ULLONG_MAX );
+    printk( "  ULLONG_MAX......%qx                 \n", ULLONG_MAX );
     printk( "----------------------------------------\n" );
     printk( "Done!                                   \n" );
     printk( "                                        \n" );

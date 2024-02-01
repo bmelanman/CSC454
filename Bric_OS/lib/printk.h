@@ -1,6 +1,6 @@
 /** @file printk.h
  *
- * @brief A description of the module's purpose.
+ * @brief Header for kernel print function implementation.
  *
  * @author Bryce Melander
  * @date Jan-09-2024

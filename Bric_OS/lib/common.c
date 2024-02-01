@@ -1,6 +1,6 @@
 /** @file common.c
  *
- * @brief A description of the module's purpose.
+ * @brief Commonly used functions.
  *
  * @author Bryce Melander
  * @date Jan-25-2024

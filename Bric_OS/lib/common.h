@@ -1,6 +1,6 @@
 /** @file util.h
  *
- * @brief A description of the module's purpose.
+ * @brief Commonly used macros and definitions.
  *
  * @author Bryce Melander
  * @date Jan-09-2024

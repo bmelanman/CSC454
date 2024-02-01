@@ -1,6 +1,6 @@
 /** @file idt.h
  *
- * @brief A description of the module's purpose.
+ * @brief Header file for the Interrupt Descriptor Table (IDT) implementation.
  *
  * @author Bryce Melander
  * @date Jan-25-2024

@@ -1,6 +1,6 @@
 /** @file tests.h
  *
- * @brief A description of the module's purpose.
+ * @brief Header for kernel test functions.
  *
  * @author Bryce Melander
  * @date Jan-18-2024

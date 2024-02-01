@@ -1,6 +1,6 @@
 /** @file irq_handler.c
  *
- * @brief A description of the module's purpose.
+ * @brief Interrupt Request (IRQ) handler implementation.
  *
  * @author Bryce Melander
  * @date Jan-25-2024

@@ -1,6 +1,6 @@
 /** @file pic.c
  *
- * @brief A description of the module's purpose.
+ * @brief Programmable Interrupt Controller (PIC) implementation.
  *
  * @author Bryce Melander
  * @date Jan-28-2024

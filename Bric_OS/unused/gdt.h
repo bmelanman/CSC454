@@ -1,6 +1,6 @@
 /** @file gdt.h
  *
- * @brief A description of the module's purpose.
+ * @brief Header for Global Descriptor Table (GDT) implementation.
  *
  * @author Bryce Melander
  * @date Jan-25-2024

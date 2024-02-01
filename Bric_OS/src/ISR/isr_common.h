@@ -1,6 +1,6 @@
 /** @file ISR_common.h
  *
- * @brief A description of the module's purpose.
+ * @brief Commonly used ISR functions.
  *
  * @author Bryce Melander
  * @date Jan-30-2024

@@ -1,6 +1,6 @@
 /** @file idt.c
  *
- * @brief A description of the module's purpose.
+ * @brief Interrupt Descriptor Table (IDT) implementation.
  *
  * @author Bryce Melander
  * @date Jan-25-2024
