@@ -1,6 +1,6 @@
 /** @file ps2_keyboard_driver.h
  *
- * @brief A description of the module's purpose.
+ * @brief Header file for the PS/2 keyboard driver.
  *
  * @author Bryce Melander
  * @date Jan-10-2024

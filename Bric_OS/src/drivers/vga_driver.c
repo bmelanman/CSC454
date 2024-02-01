@@ -1,6 +1,6 @@
 /** @file vga_driver.c
  *
- * @brief A description of the module's purpose.
+ * @brief VGA driver implementation.
  *
  * @author Bryce Melander
  * @date Jan-08-2024
