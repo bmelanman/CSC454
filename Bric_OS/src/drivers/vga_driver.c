@@ -273,8 +273,10 @@ void VGA_display_char_attr( char c, uint8_t attr )
 
             break;
 
-        // Backspace
+        // Backspace & Delete
         case BS:
+        // TODO: Implement delete properly
+        case DEL:
             VGA_process_backspace();
 
             break;

@@ -21,6 +21,7 @@
 // Special Characters
 # define ESC ( 0x1B )
 # define BS  ( '\b' )
+# define DEL ( 0x7F )
 # define TAB ( '\t' )
 # define LF  ( '\n' )
 # define CR  ( '\r' )

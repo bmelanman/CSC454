@@ -109,6 +109,8 @@
 #define F8  ( 'F' )
 #define F9  ( 'F' )
 #define F10 ( 'F' )
+#define F11 ( 'F' )
+#define F12 ( 'F' )
 
 // Check if the scan code is a modifier key
 #define IS_SHFT( x )  ( ( x ) == LSFT || ( x ) == RSFT )
@@ -143,8 +145,8 @@ char standard_ascii_table_LOWER[ASCII_TABLE_SIZE] = {
     ALT,  ' ', CAPS, F1,   F2,  F3,   F4,  F5,   // 0x38 - 0x3F
     F6,   F7,  F8,   F9,   F10, NUL,  NUL, NUL,  // 0x40 - 0x47
     UP,   NUL, NUL,  LFT,  NUL, RHT,  NUL, NUL,  // 0x48 - 0x4F
-    DN,   NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x50 - 0x57
-    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
+    DN,   NUL, NUL,  DEL,  NUL, NUL,  NUL, F11,  // 0x50 - 0x57
+    F12,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
     NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x60 - 0x67
     NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x68 - 0x6F
     NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x70 - 0x77
@@ -162,8 +164,8 @@ char standard_ascii_table_UPPER[ASCII_TABLE_SIZE] = {
     ALT, ' ', CAPS, F1,  F2,  F3,   F4,  F5,   // 0x38 - 0x3F
     F6,  F7,  F8,   F9,  F10, NUL,  NUL, NUL,  // 0x40 - 0x47
     UP,  NUL, NUL,  LFT, NUL, RHT,  NUL, NUL,  // 0x48 - 0x4F
-    DN,  NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x50 - 0x57
-    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
+    DN,  NUL, NUL,  DEL, NUL, NUL,  NUL, F11,  // 0x50 - 0x57
+    F12, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
     NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x60 - 0x67
     NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x68 - 0x6F
     NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x70 - 0x77
@@ -182,8 +184,8 @@ char caps_ascii_table_LOWER[ASCII_TABLE_SIZE] = {
     ALT,  ' ', CAPS, F1,   F2,  F3,   F4,  F5,   // 0x38 - 0x3F
     F6,   F7,  F8,   F9,   F10, NUL,  NUL, NUL,  // 0x40 - 0x47
     UP,   NUL, NUL,  LFT,  NUL, RHT,  NUL, NUL,  // 0x48 - 0x4F
-    DN,   NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x50 - 0x57
-    NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
+    DN,   NUL, NUL,  DEL,  NUL, NUL,  NUL, F11,  // 0x50 - 0x57
+    F12,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
     NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x60 - 0x67
     NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x68 - 0x6F
     NUL,  NUL, NUL,  NUL,  NUL, NUL,  NUL, NUL,  // 0x70 - 0x77
@@ -201,8 +203,8 @@ char caps_ascii_table_UPPER[ASCII_TABLE_SIZE] = {
     ALT, ' ', CAPS, F1,  F2,  F3,   F4,  F5,   // 0x38 - 0x3F
     F6,  F7,  F8,   F9,  F10, NUL,  NUL, NUL,  // 0x40 - 0x47
     UP,  NUL, NUL,  LFT, NUL, RHT,  NUL, NUL,  // 0x48 - 0x4F
-    DN,  NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x50 - 0x57
-    NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
+    DN,  NUL, NUL,  DEL, NUL, NUL,  NUL, F11,  // 0x50 - 0x57
+    F12, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x58 - 0x5F
     NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x60 - 0x67
     NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x68 - 0x6F
     NUL, NUL, NUL,  NUL, NUL, NUL,  NUL, NUL,  // 0x70 - 0x77
@@ -415,6 +417,16 @@ int process_scan_code( int scan_code )
             {
                 // Return the lowercase character
                 key = ascii_table_LOWER[curr_code];
+            }
+
+            // Check if the key has a value in the ASCII table
+            if ( key == NUL )
+            {
+                // DEBUG: Print the scan code
+                OS_INFO( "No character for scan code %X\n", curr_code );
+
+                // Return no character
+                return NO_CHAR;
             }
 
             // Return the key!
