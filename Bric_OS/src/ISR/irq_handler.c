@@ -40,8 +40,7 @@ irq_handler_entry_t irq_handler_table[IDT_MAX_DESCRIPTORS];
 __noreturn void exception_handler( int error )
 {
     // Print error
-    OS_ERROR( "Exception Occurred!\n" );
-    OS_ERROR( "  Error: %d\n", error );
+    OS_ERROR( "Exception Occurred! Error: %d\n", error );
 
     // Halt
     HLT();
@@ -66,8 +65,11 @@ void interrupt_handler( int irq, int error )
     }
     else
     {
-        // DEBUG: Print error
-        OS_ERROR( "Interrupt %d is invalid!\n", irq );
+        // Unhandled interrupt error
+        OS_ERROR( "Unhandled interrupt: %d\n", irq );
+
+        // Halt
+        HLT();
     }
 
     IRQ_end_of_interrupt( irq );

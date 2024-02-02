@@ -35,15 +35,15 @@ static idt_entry_t idt[IDT_MAX_DESCRIPTORS];
 // Table of vectors
 static __unused bool vectors[IDT_MAX_DESCRIPTORS];
 
-/* Private Functions */
-
 /* Public Functions */
 
 void idt_init( void )
 {
     for ( uint8_t vector = 0; vector < 37; ++vector )
     {
+        // Set the descriptor
         idt_set_descriptor( vector, isr_stub_table[vector], PRESENT_INTERRUPT_GATE );
+        // Mark the vector as in use
         vectors[vector] = true;
     }
 
@@ -63,10 +63,7 @@ void idt_set_descriptor( uint8_t vector, void* isr, uint8_t flags )
 
     descriptor->isr_low = (uint64_t)isr & 0x0000FFFF;
     descriptor->kernel_cs = GDT_OFFSET_KMODE_CODE_SEG;
-
-    // TODO: ist
     descriptor->ist = 0;
-
     descriptor->attributes = flags;
     descriptor->isr_mid = ( (uint64_t)isr >> 16 ) & 0x0000FFFF;
     descriptor->isr_high = ( (uint64_t)isr >> 32 ) & 0xFFFFFFFF;
