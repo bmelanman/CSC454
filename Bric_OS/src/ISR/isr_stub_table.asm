@@ -45,14 +45,28 @@ extern interrupt_handler
 
 %macro isr_err_stub 1
 isr_stub_%+%1:
+    ; Disable interrupts
+    cli
+
     ; Exception handler won't be returning,
     ; so we don't need to save any registers
+
+    ; Clear direction flag
+    cld
+
+    ; Set up ISR stack frame
+    push %1 ; Arg 1: ISR number
+    pop rsi
+
     call exception_handler
     iretq
 %endmacro
 
 %macro isr_no_err_stub 1
 isr_stub_%+%1:
+    ; Disable interrupts
+    cli
+
     ; Save registers
     pushaq
     ; Clear direction flag
@@ -63,12 +77,17 @@ isr_stub_%+%1:
     pop rdi
     push 0  ; Arg 2: Error code
     pop rsi
+    push 0  ; Arg 3: void *
+    pop rdx
 
     ; Call the interrupt handler
     call interrupt_handler
 
     ; Restore registers
     popaq
+
+    ; Re-enable interrupts
+    sti
 
     iretq
 %endmacro
@@ -105,10 +124,31 @@ isr_no_err_stub 28
 isr_no_err_stub 29
 isr_err_stub    30
 isr_no_err_stub 31
+isr_no_err_stub 32
+isr_no_err_stub 33
+isr_no_err_stub 34
+isr_no_err_stub 35
+isr_no_err_stub 36
+isr_no_err_stub 37
+isr_no_err_stub 38
+isr_no_err_stub 39
+isr_no_err_stub 40
+isr_no_err_stub 41
+isr_no_err_stub 42
+isr_no_err_stub 43
+isr_no_err_stub 44
+isr_no_err_stub 45
+isr_no_err_stub 46
+isr_no_err_stub 47
+; IRQs from 0x30 to 0xFF are typically specific to the hardware and software configuration of the system.
+; Here, they are all marked as "Reserved / User definable".
+isr_no_err_stub 48 ; 0x30 - Reserved / User definable
+isr_no_err_stub 49 ; 0x31 - Reserved / User definable
 
-%assign i 32
-%rep    224
-    isr_no_err_stub i
+; ... Continue this pattern for the remaining IRQs up to 0xFF
+%assign i 50
+%rep    206
+    isr_no_err_stub i ; 0x%[i] - Reserved / User definable
 %assign i i+1
 %endrep
 

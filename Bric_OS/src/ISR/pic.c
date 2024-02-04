@@ -17,7 +17,10 @@
 
 /* Private Defines and Macros */
 
-#define PIC_EOI ( 0x20 )  // End of interrupt
+#define PIC_ENABLE_CASCADE ( 0x02U )  // Enable the cascade mode
+#define PIC_ENABLE_IRQ2    ( 0x04U )  // Enable IRQ2 (cascade)
+#define PIC_EOI            ( 0x20U )  // End of interrupt
+#define PIC_DISABLE        ( 0xFFU )  // Disable the PIC
 
 #define ICW1_ICW4      ( 0x01U )  // Indicates that ICW4 will be present
 #define ICW1_SINGLE    ( 0x02U )  // Single (cascade) mode
@@ -31,11 +34,25 @@
 #define ICW4_BUF_CTRLR ( 0x0CU )  // Buffered mode/controller
 #define ICW4_SFNM      ( 0x10U )  // Special fully nested (not)
 
+#define IRQ_RANGE_ERROR( irq ) OS_ERROR( "Invalid IRQ: %d, out of PIC range!\n", irq )
+
 /* Global Variables */
 
 /* Private Functions */
 
 /* Public Functions */
+
+void PIC_init( void )
+{
+    // Remap the PICs to the specified offsets
+    PIC_remap( PIC1_OFFSET, PIC2_OFFSET );
+
+    // Mask all PIC controlled IRQs
+    for ( uint i = PIC1_MIN_IRQ; i < PIC2_MAX_IRQ; i++ )
+    {
+        PIC_set_mask( i );
+    }
+}
 
 /**
  * @brief Remap the PICs to the specified offsets
@@ -62,9 +79,9 @@ void PIC_remap( int offset1, int offset2 )
     io_wait();
 
     // Inform controller of peripheral PIC at IRQ2, then tell the peripheral to cascade
-    outb( PIC1_DATA, 4 );
+    outb( PIC1_DATA, PIC_ENABLE_IRQ2 );
     io_wait();
-    outb( PIC2_DATA, 2 );
+    outb( PIC2_DATA, PIC_ENABLE_CASCADE );
     io_wait();
 
     // Enable 8086 mode
@@ -78,25 +95,143 @@ void PIC_remap( int offset1, int offset2 )
 }
 
 /**
+ * @brief Set the mask for the specified IRQ.
+ * @param irq IRQ to set the mask for.
+ * @return 0 on success, -1 on failure.
+ */
+int PIC_set_mask( uint16_t irq )
+{
+    uint16_t pic_data_port;
+    uint8_t mask;
+
+    // Make sure the IRQ is valid
+    if ( !IS_PIC_IRQ( irq ) )
+    {
+        IRQ_RANGE_ERROR( irq );
+        return -1;
+    }
+
+    if ( irq < PIC1_MIN_IRQ )
+    {
+        pic_data_port = PIC1_DATA;
+    }
+    else
+    {
+        pic_data_port = PIC2_DATA;
+        irq -= 8;
+    }
+
+    // Set the appropriate bit in the current mask
+    mask = inb( pic_data_port ) | ( 1 << irq );
+    // Write the new mask back to the PIC
+    outb( pic_data_port, mask );
+
+    return 0;
+}
+
+/**
+ * @brief Clear the mask for the specified IRQ.
+ * @param irq IRQ to clear the mask for.
+ * @return 0 on success, -1 on failure.
+ */
+int PIC_clear_mask( uint16_t irq )
+{
+    uint16_t pic_data_port;
+    uint8_t mask;
+
+    // Make sure the IRQ is valid
+    if ( !IS_PIC_IRQ( irq ) )
+    {
+        IRQ_RANGE_ERROR( irq );
+        return -1;
+    }
+
+    irq -= PIC1_OFFSET;
+
+    if ( irq < PIC1_MIN_IRQ )
+    {
+        pic_data_port = PIC1_DATA;
+    }
+    else
+    {
+        pic_data_port = PIC2_DATA;
+        irq -= 8;
+    }
+
+    // Clear the appropriate bit in the current mask
+    mask = inb( pic_data_port ) & ~( 1 << irq );
+    // Write the new mask back to the PIC
+    outb( pic_data_port, mask );
+
+    return 0;
+}
+
+/**
+ * @brief Get the mask for the specified IRQ.
+ * @param irq IRQ to get the mask for.
+ * @return Mask for the specified IRQ.
+ */
+int PIC_get_mask( uint16_t irq )
+{
+    uint16_t pic_data_port;
+    uint8_t mask;
+
+    // Make sure the IRQ is valid
+    if ( !IS_PIC_IRQ( irq ) )
+    {
+        IRQ_RANGE_ERROR( irq );
+        return -1;
+    }
+
+    // Account for the offset since we are using the PIC offsets
+    irq -= PIC1_OFFSET;
+
+    if ( irq < PIC1_MIN_IRQ )
+    {
+        pic_data_port = PIC1_DATA;
+    }
+    else
+    {
+        pic_data_port = PIC2_DATA;
+        irq -= 8;
+    }
+
+    // Read the current mask from the PIC
+    mask = inb( pic_data_port ) & ( 1 << irq );
+
+    // Return weather or not the IRQ is masked
+    return ( mask > 0 );
+}
+
+/**
  * @brief Disable the PICs
  */
 void PIC_disable( void )
 {
-    outb( PIC1_DATA, 0xFF );
-    outb( PIC2_DATA, 0xFF );
+    outb( PIC1_DATA, PIC_DISABLE );
+    outb( PIC2_DATA, PIC_DISABLE );
 }
 
 /**
  * @brief Send an EOI (End of Interrupt) to the PIC
  * @param irq IRQ to send the EOI to
  */
-void PIC_sendEOI( unsigned int irq )
+void PIC_send_EOI( unsigned int irq )
 {
-    if ( irq >= 8 )
+    // Ensure the IRQ is within the valid range
+    if ( irq < PIC1_MIN_IRQ || irq > PIC2_MAX_IRQ )
+    {
+        OS_ERROR( "Cannot send EOI for IRQ %d", irq );
+        return;
+    }
+
+    // Send an EOI to the second PIC only if necessary
+    if ( irq > PIC1_MAX_IRQ )
     {
         outb( PIC2_COMMAND, PIC_EOI );
     }
 
+    // Always send an EOI to the first PIC
     outb( PIC1_COMMAND, PIC_EOI );
 }
 

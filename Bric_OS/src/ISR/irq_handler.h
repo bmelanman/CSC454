@@ -14,30 +14,33 @@
 
 /* Includes */
 
-# include "common.h"
 # include "isr_common.h"
 
 /* Defines */
 
-# define IRQ1_KEYBOARD ( 0x21U )
+/* Macros */
+
+// Disable an IRQ
+# define IRQ_set_mask( irq ) PIC_set_mask( irq )
+
+// Enable an IRQ
+# define IRQ_clear_mask( irq ) PIC_clear_mask( irq )
+
+// Get the mask of an IRQ
+# define IRQ_get_mask( irq ) PIC_get_mask( irq )
+
+// Send an End of Interrupt (EOI)
+# define IRQ_end_of_interrupt( irq ) PIC_send_EOI( irq )
 
 /* Public Functions */
 
 void interrupt_handler( int irq, int error );
 
-void exception_handler( int error );
+void exception_handler( int irq );
 
 driver_status_t IRQ_init( void );
 
-void IRQ_set_mask( int irq );
-
-void IRQ_clear_mask( int irq );
-
-int IRQ_get_mask( int IRQline );
-
-void IRQ_end_of_interrupt( int irq );
-
-void IRQ_set_handler( uint16_t irq, irq_handler_t handler, void* arg );
+int IRQ_set_handler( uint16_t irq, irq_handler_t handler, void* arg );
 
 #endif /* IRQ_HANDLER_H */
 

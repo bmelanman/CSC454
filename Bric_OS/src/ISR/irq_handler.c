@@ -19,11 +19,6 @@
 
 /* Private Defines and Macros */
 
-#define __interrupt __attribute__( ( interrupt ) )
-
-#define PIC1_OFFSET ( 0x20U )  // Controller PIC interrupt offset
-#define PIC2_OFFSET ( 0x28U )  // Peripheral PIC interrupt offset
-
 // Interrupt Descriptor Table Struct
 typedef struct
 {
@@ -33,14 +28,87 @@ typedef struct
 
 /* Global Variables */
 
-irq_handler_entry_t irq_handler_table[IDT_MAX_DESCRIPTORS];
+irq_handler_entry_t irq_handler_table[IDT_MAX_IRQ];
 
 /* Private Functions */
 
-__noreturn void exception_handler( int error )
+void print_exception( int irq )
 {
-    // Print error
-    OS_ERROR( "Exception Occurred! Error: %d\n", error );
+    OS_ERROR(
+        "Exception Occurred!\n"
+        "IRQ: %d - ",
+        irq
+    );
+
+    switch ( irq )
+    {
+        case IRQ0_DIV0:
+            printk( "Divide by zero error\n" );
+            break;
+        case IRQ1_DEBUG:
+            printk( "Debug exception\n" );
+            break;
+        case IRQ2_NMI:
+            printk( "Non-maskable interrupt\n" );
+            break;
+        case IRQ3_BREAKPOINT:
+            printk( "Breakpoint exception\n" );
+            break;
+        case IRQ4_OVERFLOW:
+            printk( "Overflow exception\n" );
+            break;
+        case IRQ5_BOUND_RANGE:
+            printk( "Bound range exceeded exception\n" );
+            break;
+        case IRQ6_INVALID_OPCODE:
+            printk( "Invalid opcode exception\n" );
+            break;
+        case IRQ7_DEVICE_NOT_AVAILABLE:
+            printk( "Device not available exception\n" );
+            break;
+        case IRQ8_DOUBLE_FAULT:
+            printk( "Double fault exception\n" );
+            break;
+        case IRQ9_COPROC_SEG_OVERRUN:
+            printk( "Coprocessor segment overrun exception\n" );
+            break;
+        case IRQ10_PAGE_FAULT:
+            printk( "Page fault exception\n" );
+            break;
+        case IRQ11_GENERAL_PROTECTION:
+            printk( "General protection exception\n" );
+            break;
+        case IRQ12_COPROCESSOR_FAULT:
+            printk( "Coprocessor fault exception\n" );
+            break;
+        case IRQ13_ALIGNMENT_CHECK:
+            printk( "Alignment check exception\n" );
+            break;
+        case IRQ14_MACHINE_CHECK:
+            printk( "Machine check exception\n" );
+            break;
+        case IRQ15_SIMD_FLOATING_POINT:
+            printk( "SIMD floating point exception\n" );
+            break;
+        case IRQ16_VIRTUALIZATION:
+            printk( "Virtualization exception\n" );
+            break;
+        case IRQ17_CONTROL_PROTECTION:
+            printk( "Control protection exception\n" );
+            break;
+        case IRQ30_SECURITY:
+            printk( "Security exception\n" );
+            break;
+        default:
+            printk( "We should absolutely never be here!!!\n" );
+            break;
+    }
+}
+
+__noreturn void exception_handler( int irq )
+{
+    // Print the exception
+    print_exception( irq );
 
     // Halt
     HLT();
@@ -52,35 +120,33 @@ __noreturn void exception_handler( int error )
 
 void interrupt_handler( int irq, int error )
 {
-    if ( (uint)irq < IRQ_EXCEPTION_MAX )
+    // Validate the IRQ
+    if ( IS_VALID_IRQ( (uint16_t)irq ) )
     {
-        // Call the exception handler
-        exception_handler( error );
-    }
-
-    if ( (uint)irq < IDT_MAX_DESCRIPTORS && irq_handler_table[irq].handler != NULL )
-    {
-        // Call the IRQ handler
-        irq_handler_table[irq].handler( irq, error, irq_handler_table[irq].arg );
-    }
-    else
-    {
-        // Unhandled interrupt error
-        OS_ERROR( "Unhandled interrupt: %d\n", irq );
-
-        // Halt
-        HLT();
+        if ( irq_handler_table[irq].handler != NULL )
+        {
+            // Call the IRQ handler
+            irq_handler_table[irq].handler( irq, error, irq_handler_table[irq].arg );
+        }
+        else
+        {
+            // Unhandled interrupt error
+            OS_ERROR( "Unhandled interrupt!!! IRQ: %d\n", irq );
+        }
     }
 
     IRQ_end_of_interrupt( irq );
+}
+
+void default_handler( int __unused irq, __unused int error, __unused void* arg )
+{
+    // Do nothing!
 }
 
 /* Public Functions */
 
 driver_status_t IRQ_init( void )
 {
-    uint16_t i;
-
     // Disable interrupts
     CLI();
 
@@ -88,119 +154,28 @@ driver_status_t IRQ_init( void )
     idt_init();
 
     // Remap the PICs to the specified offsets
-    PIC_remap( PIC1_OFFSET, PIC2_OFFSET );
+    PIC_init();
 
-    // Mask all interrupts
-    for ( i = 0; i < IDT_MAX_DESCRIPTORS; i++ )
-    {
-        IRQ_set_mask( i );
-    }
+    // DEBUG: Install the default handler for IRQ 32 to ignore it
+    IRQ_set_handler( IRQ32_TIMER, default_handler, NULL );
 
     return SUCCESS;
 }
 
-void IRQ_set_mask( int irq )
+int IRQ_set_handler( uint16_t irq, irq_handler_t handler, void* arg )
 {
-    uint16_t port;
-    uint8_t value;
-
-    // Can't mask the first 32 interrupts
-    if ( irq < 32 )
+    // Validate the IRQ
+    if ( !IS_VALID_IRQ( irq ) )
     {
-        return;
-    }
-
-    irq -= 32;
-
-    if ( irq < 8 )
-    {
-        port = PIC1_DATA;
-    }
-    else
-    {
-        port = PIC2_DATA;
-        irq -= 8;
-    }
-
-    value = inb( port ) | ( 1 << irq );
-    outb( port, value );
-}
-
-void IRQ_clear_mask( int irq )
-{
-    uint16_t port;
-    uint8_t value;
-
-    // Can't clear the first 32 interrupts
-    if ( irq < 32 )
-    {
-        return;
-    }
-
-    irq -= 32;
-
-    if ( irq < 8 )
-    {
-        port = PIC1_DATA;
-    }
-    else
-    {
-        port = PIC2_DATA;
-        irq -= 8;
-    }
-
-    value = inb( port ) & ~( 1 << irq );
-    outb( port, value );
-}
-
-int IRQ_get_mask( int IRQline )
-{
-    uint16_t port;
-    uint8_t value;
-
-    // Can't get the mask of the first 32 interrupts
-    if ( IRQline < 32 )
-    {
-        return 0;
-    }
-
-    IRQline -= 32;
-
-    if ( IRQline < 8 )
-    {
-        port = PIC1_DATA;
-    }
-    else
-    {
-        port = PIC2_DATA;
-        IRQline -= 8;
-    }
-
-    value = inb( port ) & ( 1 << IRQline );
-    return ( value > 0 );
-}
-
-void IRQ_end_of_interrupt( int irq ) { PIC_sendEOI( irq ); }
-
-void IRQ_set_handler( uint16_t irq, irq_handler_t handler, void* arg )
-{
-    // Make sure the IRQ is valid
-    if ( irq >= IDT_MAX_DESCRIPTORS )
-    {
-        OS_ERROR( "IRQ %d is invalid!\n", irq );
-        return;
-    }
-
-    // Make sure the handler is valid
-    if ( handler == NULL )
-    {
-        OS_ERROR( "IRQ %d handler is NULL!\n", irq );
-        return;
+        OS_ERROR( "Invalid IRQ: %d\n", irq );
+        return -1;
     }
 
     // Set the handler and arg in the table
     irq_handler_table[irq].handler = handler;
     irq_handler_table[irq].arg = arg;
+
+    return 0;
 }
 
 /*** End of File ***/

@@ -14,11 +14,9 @@
 
 /* Includes */
 
-# include "common.h"
+# include "isr_common.h"
 
 /* Defines */
-
-# define IDT_MAX_DESCRIPTORS ( 0x100U )
 
 # define PRESENT_FLAG        ( 0x80U )  // 0b10000000
 # define INTERRUPT_GATE_FLAG ( 0x0EU )  // 0b00001110
@@ -52,7 +50,7 @@ extern uint64_t* isr_stub_table[];
 void idt_init( void );
 
 // Set an IDT descriptor
-void idt_set_descriptor( uint8_t vector, void* isr, uint8_t flags );
+void idt_set_descriptor( uint16_t irq, void* isr_addr, uint8_t flags );
 
 #endif /* IDT_H */
 
