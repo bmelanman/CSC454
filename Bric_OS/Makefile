@@ -2,6 +2,7 @@
 # Created by bryc_wall on 12/29/2023
 
 LOG_FILE := ../misc/qemu-system-x86_64.log
+SERIAL_FILE := ../misc/serial.log
 
 # Target OS parameters
 TARGET 	:= Bric_OS
@@ -53,7 +54,9 @@ LD_FLAGS 	:= -nostdlib $(INCLUDES)
 CC_FLAGS 	:= -Wall -Wextra -g -ffreestanding $(LD_FLAGS)
 
 # QEMU flags
-QEMU_FLAGS	:= -s -d int,in_asm -D $(LOG_FILE) -no-reboot
+QEMU_FLAGS	:= -s -d int,in_asm -D $(LOG_FILE) -no-reboot -serial stdio
+QEMU_DISPLY	:= -display curses
+QEMU_DRIVE	:= -drive format=raw,file=$(TARGET_IMG)
 
 all: $(KERNEL_BIN)
 
@@ -66,16 +69,8 @@ test:
 	@echo 'OBJECTS:'
 	@for obj in $(OBJECTS); do echo $$obj; done
 
-#qemu-system-$(ARCH) -s \
-#	-nographic \
-#	-serial mon:stdio \
-#	-append 'console=ttyS0' \
-#	-drive format=raw,file=$(TARGET_IMG)
-
 run: clean $(TARGET_IMG)
-	printf "change vnc password\nroot\n" | qemu-system-$(ARCH) $(QEMU_FLAGS) \
-		-monitor stdio -vnc :0,password=on \
-		-drive format=raw,file=$(TARGET_IMG)
+	qemu-system-$(ARCH) $(QEMU_FLAGS) $(QEMU_DISPLY) $(QEMU_DRIVE)
 	@echo ""
 
 $(TARGET_IMG): $(BLANK_IMG) $(KERNEL_BIN) $(GRB_CFG)
