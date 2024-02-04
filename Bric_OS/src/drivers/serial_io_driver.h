@@ -14,6 +14,8 @@
 
 /* Includes */
 
+# include "common.h"
+
 /* Defines */
 
 /* Macros */
@@ -22,9 +24,9 @@
 
 /* Public Functions */
 
-void serial_init( void );
+driver_status_t serial_driver_init( void );
 
-int serial_write( const char *buff, int len );
+size_t serial_write( const char *buff, size_t len );
 
 #endif /* SERIAL_IO_DRIVER_H */
 
