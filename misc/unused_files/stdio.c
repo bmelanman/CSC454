@@ -13,7 +13,6 @@
 
 /* Includes */
 
-#include "common.h"
 #include "isr_common.h"
 
 /* Private Defines and Macros */

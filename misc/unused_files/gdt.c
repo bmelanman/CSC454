@@ -213,7 +213,7 @@ void gdt_init( void )
     // gdt_entries[TSS_IDX].flags = TASK_STATE_SEG_FLAGS;
 
     // Encode the GDT entries into the table
-    for ( uint8_t i = 0; i < GDT_NUM_ENTRIES; i++ )
+    for ( uint8_t i = 0; i < GDT_NUM_ENTRIES; ++i )
     {
         encode_gdt_entry( (uint8_t *)( &gdt[i] ), gdt_entries[i] );
     }

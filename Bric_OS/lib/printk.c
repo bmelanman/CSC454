@@ -160,7 +160,7 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
 
     memset( output_str, 0, output_len );
 
-    for ( str_idx = 0; str_idx < fmt_len; str_idx++ )
+    for ( str_idx = 0; str_idx < fmt_len; ++str_idx )
     {
         // Check if the output string is full
         if ( strlen( output_str ) >= ( output_len - 32 ) )
@@ -199,24 +199,24 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
                         {
                             case 'l':
                                 parse_specifier( output_str, fmt[str_idx + 3], args, llong );
-                                str_idx++;
+                                ++str_idx;
                                 break;
 
                             default:
                                 parse_specifier( output_str, fmt[str_idx + 2], args, long );
                                 break;
                         }
-                        str_idx++;
+                        ++str_idx;
                         break;
 
                     case 'q':  // Long Long NOLINT
                         parse_specifier( output_str, fmt[str_idx + 2], args, llong );
-                        str_idx++;
+                        ++str_idx;
                         break;
 
                     case 'h':  // Short
                         parse_specifier( output_str, fmt[str_idx + 2], args, int );
-                        str_idx++;
+                        ++str_idx;
                         break;
 
                     default:
@@ -224,7 +224,7 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
                         break;
                 }
 
-                str_idx++;
+                ++str_idx;
                 break;
 
             // All other characters

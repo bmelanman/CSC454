@@ -16,7 +16,6 @@
 
 /* Includes */
 
-#include "common.h"
 #include "isr_common.h"
 
 /* Private Defines and Macros */
@@ -212,7 +211,26 @@ void VGA_process_backspace( void )
     VGA_CLEAR_CHAR();
 }
 
+void VGA_cursor_home( void )
+{
+    vga_cursor.pos.row = 0;
+    vga_cursor.pos.col = 0;
+
+    VGA_update_cursor();
+}
+
 /* Public Functions */
+
+driver_status_t VGA_driver_init( void )
+{
+    // Clear the screen
+    VGA_clear();
+
+    // Enable the cursor
+    VGA_enable_cursor();
+
+    return SUCCESS;
+}
 
 void VGA_clear( void )
 {
@@ -227,22 +245,14 @@ void VGA_clear( void )
     VGA_update_cursor();
 }
 
-driver_status_t VGA_driver_init( void )
-{
-    // Clear the screen
-    VGA_clear();
-
-    // Enable the cursor
-    VGA_enable_cursor();
-
-    return SUCCESS;
-}
-
-// TODO: Fix any race conditions
 // TODO: Add support for escape sequences
 // TODO: Add support for moving the cursor (i.e. move it to delete a previous character, etc.)
+
 void VGA_display_char_attr( char c, uint8_t attr )
 {
+    // Disable interrupts
+    // CLI();
+
     // Handle special characters
     switch ( c )
     {
@@ -311,6 +321,9 @@ void VGA_display_char_attr( char c, uint8_t attr )
             vga_cursor.pos.row = VGA_HEIGHT - 1;
         }
     }
+
+    // Enable interrupts
+    // STI();
 }
 
 void VGA_display_str_attr( const char *s, uint8_t attr )
@@ -318,7 +331,7 @@ void VGA_display_str_attr( const char *s, uint8_t attr )
     size_t i, len = strlen( s );
 
     // Print the string
-    for ( i = 0; i < len; i++ )
+    for ( i = 0; i < len; ++i )
     {
         VGA_display_char_attr( s[i], attr );
     }

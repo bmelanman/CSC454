@@ -86,7 +86,7 @@ int multiboot_parse_tags( struct multiboot_header multiboot_header )
     //// }
 
     //// Print the entries
-    // for ( i = 0; i < 0; i++ )
+    // for ( i = 0; i < 0;++i )
     //{
     //     mb_mmap_entry_t *entry = &mmap_tag->entries[i];
 
