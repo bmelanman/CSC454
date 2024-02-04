@@ -13,6 +13,7 @@
 #include "irq_handler.h"
 #include "multiboot2.h"
 #include "ps2_keyboard_driver.h"
+#include "serial_io_driver.h"
 #include "splash.h"
 #include "vga_driver.h"
 
@@ -20,9 +21,6 @@ int system_initialization( void );
 
 int kernel_main( void )
 {
-    // Disable interrupts
-    CLI();
-
     // Run initialization
     if ( system_initialization() )
     {
@@ -30,6 +28,7 @@ int kernel_main( void )
         return 1;
     }
 
+    /*
     // Test printing an escape sequence
     // printk( "\033[2J" );  // Clear the screen
 
@@ -38,16 +37,37 @@ int kernel_main( void )
     //{
     //     OS_ERROR( "Multiboot header parsing failed!\n" );
     //     return 1;
-    // }
+    // }*/
 
-    // Enable interrupts
-    STI();
+    char str[64] = "Hello0\n";
+    size_t len, str_len = strlen( str );
 
-    // Do nothing for now
+    // Wait a bit
+    // for ( size_t i = 0; i < 1e6; i++ )
+    //{
+    //    io_wait_n( (uint64_t)2e7 );
+    //}
+
     while ( 1 )
     {
-        // Halt the CPU
-        HLT();
+        // DEBUG: Print a message to the VGA buffer
+        // OS_INFO( "Writing \"%s\" (%lu bytes) to serial output.\n", str, str_len );
+
+        // Write to the serial port
+        len = serial_write( str, str_len );
+
+        // DEBUG: Print a message to the VGA buffer
+        OS_INFO( "Wrote %lu bytes to serial output.\n", len );
+
+        str[5] += 1;
+
+        if ( str[5] > 'z' )
+        {
+            str[5] = '0';
+        }
+
+        // Wait a bit
+        io_wait_n( (uint64_t)1e7 );
     }
 
     return 0;
@@ -63,6 +83,20 @@ int VGA_init( void )
     }
 
     OS_INFO( "VGA driver initialization is complete!\n" );
+
+    return 0;
+}
+
+int SER_init( void )
+{
+    // Initialize the serial driver
+    if ( serial_driver_init() == FAILURE )
+    {
+        OS_ERROR( "Serial driver initialization failed!\n" );
+        return 1;
+    }
+
+    OS_INFO( "Serial driver initialization is complete!\n" );
 
     return 0;
 }
@@ -97,10 +131,15 @@ int ISR_init( void )
 
 int system_initialization( void )
 {
+    // Disable interrupts
+    CLI();
+
     // Clear the screen
     VGA_clear();
 
     OS_INFO( "Beginning system initialization...\n" );
+
+    if ( SER_init() ) return 1;
 
     if ( VGA_init() ) return 1;
 
@@ -110,14 +149,17 @@ int system_initialization( void )
 
     OS_INFO( "System initialization is complete!\n" );
 
-    // Wait for a second
-    io_wait_n( (uint64_t)1e6 );
+    // Wait a bit
+    // io_wait_n( (uint64_t)2e7 );
+
+    // Print the splash screen
+    splash_screen();
+
+    // Enable interrupts
+    STI();
 
     //// Clear the screen
     // VGA_clear();
-
-    //// Print the splash screen
-    // splash_screen();
 
     printk( "\n" );
 
