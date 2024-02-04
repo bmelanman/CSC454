@@ -30,6 +30,8 @@
 # define __weak          __attribute__( ( weak ) )
 # define __alligned( x ) __attribute__( ( aligned( x ) ) )
 
+# define NO_CHAR ( -1 )
+
 /* Macros */
 
 // Print an info message
@@ -39,6 +41,9 @@
 // Print an error message
 # define OS_ERROR( ... ) printk( "ERROR: " __VA_ARGS__ )
 
+// Halt the CPU
+# define HLT() asm volatile( "hlt" )
+
 /* Typedefs */
 
 typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
@@ -47,18 +52,18 @@ typedef unsigned int uint;
 
 /* Public Functions */
 
-# pragma region Wait Functions
+# pragma region Wait
 
 // Wait a very small amount of time (1 to 4 microseconds, generally). Useful as a simple but
 // imprecise wait.
 void io_wait( void );
 
 // Wait for a specified number of io_wait() calls to complete
-void io_wait_n( uint32_t t );
+void io_wait_n( uint64_t t );
 
 # pragma endregion
 
-# pragma region Port I/O Functions
+# pragma region Port I/O
 
 // Read a byte from a port
 uint8_t inb( uint16_t port );
@@ -80,7 +85,7 @@ void outl( uint16_t port, uint32_t val );
 
 # pragma endregion
 
-# pragma region Interrupt Functions
+# pragma region Interrupts
 
 // Disable interrupts
 unsigned long save_irqdisable( void );
@@ -89,6 +94,35 @@ unsigned long save_irqdisable( void );
 void irqrestore( unsigned long flags );
 
 # pragma endregion
+
+# pragma region Atomic Operations
+
+// Atomically compare and swap a value
+int atomic_test_and_set( int* value, int compare, int swap );
+
+# pragma endregion
+
+# pragma region Binary Semaphore
+
+// Binary semaphore type
+typedef struct _binary_semaphore_s
+{
+    bool locked;
+} binary_semaphore_t;
+
+// Lock a binary semaphore
+// void binary_semaphore_lock( binary_semaphore_t* sem );
+
+# define binary_semaphore_lock( sem )                                       \
+        while ( atomic_test_and_set( (int*)&( sem ).locked, false, true ) ) \
+        {                                                                   \
+            io_wait();                                                      \
+        }
+
+// Unlock a binary semaphore
+// void binary_semaphore_unlock( binary_semaphore_t* sem );
+
+# define binary_semaphore_unlock( sem ) ( sem ).locked = false
 
 #endif /* UTIL_H */
 

@@ -19,18 +19,18 @@
 
 /* Public Functions */
 
-#pragma region Wait Functions
+#pragma region Wait
 
 void io_wait( void ) { outb( 0x80, 0 ); }
 
-void io_wait_n( uint32_t t )
+void io_wait_n( uint64_t t )
 {
     while ( t-- ) io_wait();
 }
 
 #pragma endregion
 
-#pragma region Port I/O Functions
+#pragma region Port I/O
 
 uint8_t inb( uint16_t port )  // NOLINT
 {
@@ -70,7 +70,7 @@ void outl( uint16_t port, uint32_t val )  // NOLINT
 
 #pragma endregion
 
-#pragma region Interrupt Functions
+#pragma region Interrupts
 
 bool are_interrupts_enabled()
 {
@@ -103,6 +103,40 @@ void irqrestore( unsigned long flags )
 //     do_whatever_without_irqs();
 //     irqrestore( f );
 // }
+
+#pragma endregion
+
+#pragma region Atomic Operations
+
+int atomic_test_and_set( int* value, int compare, int swap )  // NOLINT
+{
+    int ret;
+    asm volatile( "lock cmpxchg %2, %1"
+                  : "=a"( ret ), "+m"( *value )
+                  : "r"( swap ), "0"( compare )
+                  : "memory" );
+    return ret;
+}
+
+// Atomic swap: swap the values of two variables atomically
+// int atomic_swap( int* valA, int* valB )  // NOLINT
+//{
+//    return __sync_val
+//}
+
+#pragma endregion
+
+#pragma region Binary Semaphore
+
+// void binary_semaphore_lock( binary_semaphore_t* sem )
+//{
+//     while ( atomic_test_and_set( (int*)&sem->locked, false, true ) )
+//     {
+//         io_wait();
+//     }
+// }
+
+// void binary_semaphore_unlock( binary_semaphore_t* sem ) { sem->locked = false; }
 
 #pragma endregion
 
