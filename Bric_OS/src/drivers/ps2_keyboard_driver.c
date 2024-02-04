@@ -34,7 +34,8 @@
 #define TIMEOUT_ERROR_MSK( stat )        ( ( stat ) & ( 0b01000000 ) )  // 0 = normal, 1 = error
 #define PARITY_ERROR_MSK( stat )         ( ( stat ) & ( 0b10000000 ) )  // 0 = normal, 1 = error
 
-#define BUFFER_EMPTY ( 0U )
+#define OUTPUT_BUFF_IS_EMPTY( reg ) ( OUTPUT_BUFFER_STATUS_MSK( reg ) == 0 )
+#define INPUT_BUFF_IS_FULL( reg )   ( INPUT_BUFFER_STATUS_MSK( reg ) != 0 )
 
 #define DEVICE_COMMAND ( 0U )
 #define CONTLR_COMMAND ( 1U )
@@ -80,9 +81,10 @@
 #define PORT1_CLK_DISABLE ( 0b00010000U )
 #define PORT2_CLK_DISABLE ( 0b00100000U )
 
-// Scan Codes
+// Scan Code Set 2
 #define SCAN_CODE_SET2 ( 0x41U )
 
+// Key Pressed/Released
 #define KEY_RELEASED ( 0x80U )
 
 // Modifier Keys
@@ -274,27 +276,27 @@ void command_register_cmd_write( uint8_t command, uint8_t byte )
     data_port_write( byte );
 }
 
-uint8_t keyboard_read( void )
+uint8_t keyboard_read( bool blocking )
 {
     // Poll the status register until the output buffer is full
-    while ( OUTPUT_BUFFER_STATUS_MSK( status_register_read() ) == BUFFER_EMPTY )
+    do
     {
         // Wait
         io_wait_n( IO_WAIT_LEN );
-    }
+    } while ( OUTPUT_BUFF_IS_EMPTY( status_register_read() ) && blocking );
 
     // Read the resulting byte from the data port
     return data_port_read();
 }
 
-void keyboard_write( uint8_t byte )
+void keyboard_write( uint8_t byte, bool blocking )
 {
     // Poll the status register until the input buffer is empty
-    while ( INPUT_BUFFER_STATUS_MSK( status_register_read() ) != BUFFER_EMPTY )
+    do
     {
         // Wait
         io_wait_n( IO_WAIT_LEN );
-    }
+    } while ( INPUT_BUFF_IS_FULL( status_register_read() ) && blocking );
 
     // Write the byte to the data port
     data_port_write( byte );
@@ -434,6 +436,27 @@ int process_scan_code( int scan_code )
     }
 }
 
+void ps2_keyboard_irq_handler( int __unused irq, int __unused error, void __unused *arg )
+{
+    // Read the scan code
+    uint8_t curr_code = keyboard_read( false );
+
+    // Process the scan code
+    int key = process_scan_code( curr_code );
+
+    // Check if a character was returned
+    if ( key == NO_CHAR )
+    {
+        return;
+    }
+
+    // Add the character to the buffer
+    // TODO: Add the character to the stdio buffer
+
+    // Display the character on the screen
+    VGA_display_char( (char)key );
+}
+
 #pragma endregion
 
 /* Public Functions */
@@ -535,9 +558,9 @@ driver_status_t ps2_keyboard_driver_init( bool irq_enable )
     // Setup the keyboard's scan code
     while ( 1 )
     {
-        keyboard_write( KBD_CMD_GET_SET_SCAN_CODE_SET );
-        keyboard_write( KBD_SCAN_CODE_SET_2 );
-        status_byte = keyboard_read();
+        keyboard_write( KBD_CMD_GET_SET_SCAN_CODE_SET, true );
+        keyboard_write( KBD_SCAN_CODE_SET_2, true );
+        status_byte = keyboard_read( true );
 
         if ( status_byte == KBD_RESEND )
         {
@@ -554,16 +577,16 @@ driver_status_t ps2_keyboard_driver_init( bool irq_enable )
     }
 
     // Verify the scan code set
-    keyboard_write( KBD_CMD_GET_SET_SCAN_CODE_SET );
-    keyboard_write( KBD_CMD_GET_SCAN_CODE_SET );
+    keyboard_write( KBD_CMD_GET_SET_SCAN_CODE_SET, true );
+    keyboard_write( KBD_CMD_GET_SCAN_CODE_SET, true );
 
-    if ( keyboard_read() != KBD_ACK )
+    if ( keyboard_read( true ) != KBD_ACK )
     {
         OS_ERROR( "Get scan code returned %X\n\n", status_byte );
         return FAILURE;
     }
 
-    status_byte = keyboard_read();
+    status_byte = keyboard_read( true );
 
     if ( status_byte != SCAN_CODE_SET2 )
     {
@@ -578,53 +601,36 @@ driver_status_t ps2_keyboard_driver_init( bool irq_enable )
     if ( irq_enable )
     {
         // Set and enable the interrupt handler for the keyboard
-        IRQ_set_handler( IRQ1_KEYBOARD, ps2_keyboard_driver_interrupt_handler, NULL );
+        IRQ_set_handler( IRQ33_KEYBOARD, ps2_keyboard_irq_handler, NULL );
 
         // Enable port 1 interrupt
-        IRQ_clear_mask( IRQ1_KEYBOARD );
+        IRQ_clear_mask( IRQ33_KEYBOARD );
     }
 
     // Return success
     return SUCCESS;
 }
 
-void ps2_keyboard_driver_interrupt_handler( int irq, int error, void *arg )
-{
-    // Ignore inputs
-    (void)irq;
-    (void)error;
-    (void)arg;
-
-    // Read the scan code
-    uint8_t curr_code = keyboard_read();
-
-    // Process the scan code
-    int key = process_scan_code( curr_code );
-
-    // Add the character to the buffer
-    if ( key != NO_CHAR )
-    {
-        // TODO: Add the character to the stdio buffer
-
-        // Display the character on the screen
-        VGA_display_char( (char)key );
-    }
-}
-
 char polling_keyboard_get_char( void )
 {
-    int scan_code, key;
+    int key = NO_CHAR;
+
+    // Disable the keyboard interrupt
+    // IRQ_set_mask( IRQ33_KEYBOARD );
 
     // Poll the keyboard until a key is pressed
     do
     {
         // Read the scan code
-        scan_code = keyboard_read();
+        uint8_t curr_code = keyboard_read( false );
 
         // Process the scan code
-        key = process_scan_code( scan_code );
+        key = process_scan_code( curr_code );
 
     } while ( key == NO_CHAR );
+
+    // Enable the keyboard interrupt
+    // IRQ_clear_mask( IRQ33_KEYBOARD );
 
     // Return the character
     return (char)key;

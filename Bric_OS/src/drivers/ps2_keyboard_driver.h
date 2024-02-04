@@ -18,15 +18,9 @@
 
 /* Defines */
 
-# define NO_CHAR ( -1 )
-
 /* Public Functions */
 
 driver_status_t ps2_keyboard_driver_init( bool irq_enable );
-
-void ps2_keyboard_driver_interrupt_handler( int irq, int error, void *arg );
-
-char IRQ_keyboard_get_char( void );
 
 char polling_keyboard_get_char( void );
 
