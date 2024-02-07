@@ -46,6 +46,8 @@ PREFIX		:= $(ARCH)-elf-
 CC 			:= $(PREFIX)gcc
 LD 			:= $(PREFIX)ld
 OBJCOPY 	:= $(PREFIX)objcopy
+ASM_CC		:= nasm
+ASM_FLAGS	:= -f elf64 -g
 
 # Compiler flags
 SRC_INCS	:= $(shell find $(SRC_DIR) -type d -printf "-I%p " | sed 's/.$$//')
@@ -54,8 +56,9 @@ LD_FLAGS 	:= -nostdlib $(INCLUDES)
 CC_FLAGS 	:= -Wall -Wextra -g -ffreestanding $(LD_FLAGS)
 
 # QEMU flags
-QEMU_FLAGS	:= -s -d int,in_asm -D $(LOG_FILE) -no-reboot -serial stdio
+QEMU_FLAGS	:= -s -d int,in_asm -D $(LOG_FILE) -no-reboot $(QEMU_USER_FLAGS)
 QEMU_DISPLY	:= -display curses
+QEMU_SERIAL	:= -serial file:$(SERIAL_FILE)
 QEMU_DRIVE	:= -drive format=raw,file=$(TARGET_IMG)
 
 all: $(KERNEL_BIN)
@@ -70,7 +73,7 @@ test:
 	@for obj in $(OBJECTS); do echo $$obj; done
 
 run: clean $(TARGET_IMG)
-	qemu-system-$(ARCH) $(QEMU_FLAGS) $(QEMU_DISPLY) $(QEMU_DRIVE)
+	qemu-system-$(ARCH) $(QEMU_FLAGS) $(QEMU_DISPLY) $(QEMU_DRIVE) $(QEMU_SERIAL)
 	@echo ""
 
 $(TARGET_IMG): $(BLANK_IMG) $(KERNEL_BIN) $(GRB_CFG)
@@ -126,7 +129,7 @@ $(OBJ_DIR)/%.c.o: %.c
 
 $(OBJ_DIR)/%.asm.o: %.asm
 	@mkdir -p $(@D)
-	nasm -f elf64 $< -o $@
+	$(ASM_CC) $(ASM_FLAGS) $< -o $@
 
 count:
 	wc -l $(SOURCES)
