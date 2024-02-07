@@ -1,94 +1,21 @@
 global start
+
 extern long_mode_start
 
 section .rodata
-tss64:
-    dd 0x00000000 ; reserved
-    dd 0x00000000 ; rsp0 (low)
-    dd 0x00000000 ; rsp0 (high)
-    dd 0x00000000 ; rsp1 (low)
-    dd 0x00000000 ; rsp1 (high)
-    dd 0x00000000 ; rsp2 (low)
-    dd 0x00000000 ; rsp2 (high)
-    dd 0x00000000 ; reserved
-    dd 0x00000000 ; reserved
-    dd 0x00000000 ; ist1 (low)
-    dd 0x00000000 ; ist1 (high)
-    dd 0x00000000 ; ist2 (low)
-    dd 0x00000000 ; ist2 (high)
-    dd 0x00000000 ; ist3 (low)
-    dd 0x00000000 ; ist3 (high)
-    dd 0x00000000 ; ist4 (low)
-    dd 0x00000000 ; ist4 (high)
-    dd 0x00000000 ; ist5 (low)
-    dd 0x00000000 ; ist5 (high)
-    dd 0x00000000 ; ist6 (low)
-    dd 0x00000000 ; ist6 (high)
-    dd 0x00000000 ; ist7 (low)
-    dd 0x00000000 ; ist7 (high)
-    dd 0x00000000 ; reserved
-    dd 0x00000000 ; reserved
-    dw 0x0000     ; reserved
-    dw 0x0000     ; iomap base
-tss64_end:
-
 gdt64:
 .null_desc: equ $ - gdt64 ; Null descriptor
-    dw 0x0000   ; limit         [ 0:15]
-    dw 0x0000   ; base          [ 0:15]
-    db 0x00     ; base          [16:23]
-    db 0x00     ; access byte
-    db 0x00     ; flags, limit  [16:19]
-    db 0x00     ; base          [24:31]
+    dq 0x0000000000000000
 .kmode_code: equ $ - gdt64 ; Kernel Mode Code Segment
-    dw 0xFFFF   ; limit
-    dw 0x0000   ; base
-    db 0x00     ; base
-    db 0x9A     ; access byte
-    db 0xAF     ; flags, limit
-    db 0x00     ; base
-.kmode_data: equ $ - gdt64 ; Kernel Mode Data Segment
-    dw 0xFFFF   ; limit
-    dw 0x0000   ; base
-    db 0x00     ; base
-    db 0x92     ; access byte
-    db 0xCF     ; flags, limit
-    db 0x00     ; base
-.umode_code: equ $ - gdt64 ; User Mode Code Segment
-    dw 0xFFFF   ; limit
-    dw 0x0000   ; base
-    db 0x00     ; base
-    db 0xFA     ; access byte
-    db 0xAF     ; flags, limit
-    db 0x00     ; base
-.umode_data: equ $ - gdt64 ; User Mode Data Segment
-    dw 0xFFFF   ; limit
-    dw 0x0000   ; base
-    db 0x00     ; base
-    db 0xF2     ; access byte
-    db 0xCF     ; flags, limit
-    db 0x00     ; base
-.task_state: equ $ - gdt64 ; Task State Segment
-    dw tss64_end - tss64 - 1 ; limit
-    dw tss64 - gdt64         ; base
-    db 0x00     ; base
-    db 0x89     ; access byte
-    db 0x40     ; flags, limit
-    db 0x00     ; base
+    dw 0xFFFF   ; limit         [0:15]
+    dw 0x0000   ; base          [0:15]
+    db 0x00     ; base          [16:23]
+    db 0x9A     ; access byte   [P:1, DPL:00, S:1, Type:1010]
+    db 0xAF     ; flags, limit  [G:1, D:1, 0:0, AVL:0, Limit:1111]
+    db 0x00     ; base          [24:31]
 .pointer:
     dw $ - gdt64 - 1
     dq gdt64
-
-;.null_desc: equ $ - gdt64 ; Null descriptor
-;    dq 0
-;.kmode_code: equ $ - gdt64 ; Kernel Mode Code Segment
-;    dq (1<<43) | (1<<44) | (1<<47) | (1<<53)
-;.kmode_data: equ $ - gdt64 ; Kernel Mode Data Segment
-;    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) | (1<<54)
-;.umode_code: equ $ - gdt64 ; User Mode Code Segment
-;    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) | (1<<55)
-;.umode_data: equ $ - gdt64 ; User Mode Data Segment
-;    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) | (1<<54) | (1<<55)
 
 section .text
 bits 32
@@ -111,7 +38,7 @@ start:
     ; jump to kernel start (doesn't return)
     jmp gdt64.kmode_code:long_mode_start
 
-    ; halt just in case (should never get here)
+    ; halt just in case (we should never get here)
     hlt
 
 ; Prints `ERR: ` and the given error code to screen and hangs.
@@ -242,6 +169,6 @@ p3_table:
     resb 4096
 p2_table:
     resb 4096
-stack_bottom:
+stack_btm:
     resb 4096
 stack_top:

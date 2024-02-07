@@ -14,6 +14,8 @@
 
 /* Includes */
 
+# include "common.h"
+
 /* Defines */
 
 # define GDT_OFFSET_NULL_DESC      ( 0x00U )
@@ -23,13 +25,21 @@
 # define GDT_OFFSET_UMODE_DATA_SEG ( 0x20U )
 # define GDT_OFFSET_TSS            ( 0x28U )
 
-/* Macros */
+/* Enternal Functions and Variables */
 
-/* Typedefs */
+extern void reload_segments( void );
+
+extern void* ist1;
+extern void* ist2;
+extern void* ist3;
+
+/* Global Variables */
 
 /* Public Functions */
 
 void gdt_init( void );
+
+void tss_init( void );
 
 #endif /* GDT_H */
 
