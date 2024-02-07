@@ -13,8 +13,10 @@
 
 /* Includes */
 
+#include "gdt.h"
 #include "idt.h"
 #include "pic.h"
+#include "timer.h"
 #include "vga_driver.h"
 
 /* Private Defines and Macros */
@@ -26,9 +28,14 @@ typedef struct
     void* arg;
 } irq_handler_entry_t;
 
+typedef enum { DISABLED = 0, ENABLED = 1 } IRQ_status_t;
+
 /* Global Variables */
 
 irq_handler_entry_t irq_handler_table[IDT_MAX_IRQ];
+
+static IRQ_status_t IRQ_status_prev = DISABLED;
+static IRQ_status_t IRQ_status_curr = DISABLED;
 
 /* Private Functions */
 
@@ -72,28 +79,28 @@ void print_exception( int irq )
         case IRQ9_COPROC_SEG_OVERRUN:
             printk( "Coprocessor segment overrun exception\n" );
             break;
-        case IRQ10_PAGE_FAULT:
+        case IRQ10_INVALID_TSS:
             printk( "Page fault exception\n" );
             break;
-        case IRQ11_GENERAL_PROTECTION:
+        case IRQ11_SEGMENT_NOT_PRESENT:
             printk( "General protection exception\n" );
             break;
-        case IRQ12_COPROCESSOR_FAULT:
+        case IRQ12_STACK_SEG_FAULT:
             printk( "Coprocessor fault exception\n" );
             break;
-        case IRQ13_ALIGNMENT_CHECK:
+        case IRQ13_GEN_PROT_FAULT:
             printk( "Alignment check exception\n" );
             break;
-        case IRQ14_MACHINE_CHECK:
+        case IRQ14_PAGE_FAULT:
             printk( "Machine check exception\n" );
             break;
-        case IRQ15_SIMD_FLOATING_POINT:
+        case IRQ15_RESERVED:
             printk( "SIMD floating point exception\n" );
             break;
-        case IRQ16_VIRTUALIZATION:
+        case IRQ16_FPU_EXCEPTION:
             printk( "Virtualization exception\n" );
             break;
-        case IRQ17_CONTROL_PROTECTION:
+        case IRQ17_ALIGNMENT_CHECK:
             printk( "Control protection exception\n" );
             break;
         case IRQ30_SECURITY:
@@ -105,7 +112,7 @@ void print_exception( int irq )
     }
 }
 
-__noreturn void exception_handler( int irq )
+__noreturn void exception_handler( int irq, int __unused error, void __unused* arg )
 {
     // Print the exception
     print_exception( irq );
@@ -134,13 +141,26 @@ void interrupt_handler( int irq, int error )
             OS_ERROR( "Unhandled interrupt!!! IRQ: %d\n", irq );
         }
     }
+    else
+    {
+        // Exception occurred
+        // exception_handler( irq );
+
+        // DEBUG: Print the exception
+        print_exception( irq );
+    }
 
     IRQ_end_of_interrupt( irq );
 }
 
-void default_handler( int __unused irq, __unused int error, __unused void* arg )
+void default_handler( int __unused irq, int error, void* arg )
 {
-    // Do nothing!
+    printk(
+        "IRQ %d called the default handler!\n"
+        "  Error: %d\n"
+        "  Arg: %p\n",
+        irq, error, arg
+    );
 }
 
 /* Public Functions */
@@ -148,16 +168,29 @@ void default_handler( int __unused irq, __unused int error, __unused void* arg )
 driver_status_t IRQ_init( void )
 {
     // Disable interrupts
-    CLI();
+    IRQ_disable();
+
+    // Initialize the new GDT
+    gdt_init();
 
     // Initialize the IDT
     idt_init();
 
-    // Remap the PICs to the specified offsets
+    // Initialize the PIC
     PIC_init();
 
-    // DEBUG: Install the default handler for IRQ 32 to ignore it
-    IRQ_set_handler( IRQ32_TIMER, default_handler, NULL );
+    // Initialize and disable the timer
+    timer_init( false );
+
+    // Set the exception handler as the handler for all exceptions (IRQs 8, 10-14, 17, and 30)
+    // irq_handler_table[IRQ8_DOUBLE_FAULT].handler = exception_handler;
+    // irq_handler_table[IRQ10_INVALID_TSS].handler = exception_handler;
+    // irq_handler_table[IRQ11_SEGMENT_NOT_PRESENT].handler = exception_handler;
+    // irq_handler_table[IRQ12_STACK_SEG_FAULT].handler = exception_handler;
+    // irq_handler_table[IRQ13_GEN_PROT_FAULT].handler = exception_handler;
+    // irq_handler_table[IRQ14_PAGE_FAULT].handler = exception_handler;
+    // irq_handler_table[IRQ17_ALIGNMENT_CHECK].handler = exception_handler;
+    // irq_handler_table[IRQ30_SECURITY].handler = exception_handler;
 
     return SUCCESS;
 }
@@ -176,6 +209,41 @@ int IRQ_set_handler( uint16_t irq, irq_handler_t handler, void* arg )
     irq_handler_table[irq].arg = arg;
 
     return 0;
+}
+
+int IRQs_are_enabled( void ) { return (int)IRQ_status_curr; }
+
+void IRQ_enable( void )
+{
+    // Modify the globals BEFORE enabling interrupts
+    IRQ_status_prev = IRQ_status_curr;
+    IRQ_status_curr = ENABLED;
+
+    // Clear the global interrupt mask
+    asm volatile( "cli" );
+}
+
+void IRQ_disable( void )
+{
+    // Only disable interrupts if they are currently enabled
+    if ( IRQ_status_curr == ENABLED )
+    {
+        // Set the global interrupt mask
+        asm volatile( "sti" );
+    }
+
+    // Modify the globals AFTER disabling interrupts
+    IRQ_status_prev = IRQ_status_curr;
+    IRQ_status_curr = DISABLED;
+}
+
+// Re-enable interrupts only if their most recent state change went from ENABLED to DISABLED.
+void IRQ_reenable( void )
+{
+    if ( IRQ_status_prev == ENABLED && IRQ_status_curr == DISABLED )
+    {
+        IRQ_enable();
+    }
 }
 
 /*** End of File ***/
