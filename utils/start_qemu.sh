@@ -54,7 +54,7 @@ if [[ ${START} -eq 1 ]]; then
 	fi
 
 	# Run QEMU in the background
-	make -C "${MAKE_DIR}" run &
+	make -C "${MAKE_DIR}" clean run -- QEMU_USER_FLAGS=-S &
 
 	# Done
 	exit 0

@@ -21,13 +21,12 @@
 // # define HALF_SQR_BTM ( (char)0xDC )  // ▄
 // # define HALF_SQR_TOP ( (char)0xDF )  // ▀
 
-# define CHAR_PREFIX  "\x25"
-# define SQUARE_25    ( 0x91U )  // ░
-# define SQUARE_50    ( 0x92U )  // ▒
-# define SQUARE_75    ( 0x93U )  // ▓
-# define SQUARE_100   ( 0x88U )  // █
-# define HALF_SQR_BTM ( 0x84U )  // ▄
-# define HALF_SQR_TOP ( 0x80U )  // ▀
+# define SQUARE_25    ( '*' )  // ░
+# define SQUARE_50    ( '$' )  // ▒
+# define SQUARE_75    ( '#' )  // ▓
+# define SQUARE_100   ( '0' )  // █
+# define HALF_SQR_BTM ( '.' )  // ▄
+# define HALF_SQR_TOP ( '"' )  // ▀
 
 void __attribute__( ( weak ) ) splash_screen( void )
 {
