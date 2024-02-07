@@ -16,7 +16,7 @@
 
 /* Includes */
 
-#include "isr_common.h"
+#include "irq_handler.h"
 
 /* Private Defines and Macros */
 
@@ -251,7 +251,7 @@ void VGA_clear( void )
 void VGA_display_char_attr( char c, uint8_t attr )
 {
     // Disable interrupts
-    // CLI();
+    IRQ_disable();
 
     // Handle special characters
     switch ( c )
@@ -322,8 +322,8 @@ void VGA_display_char_attr( char c, uint8_t attr )
         }
     }
 
-    // Enable interrupts
-    // STI();
+    // Re-enable interrupts (if they were enabled to begin with)
+    IRQ_reenable();
 }
 
 void VGA_display_str_attr( const char *s, uint8_t attr )
@@ -337,17 +337,7 @@ void VGA_display_str_attr( const char *s, uint8_t attr )
     }
 }
 
-void VGA_display_char( char c )
-{
-    // Clear the current cursor
-    VGA_disable_cursor();
-
-    VGA_display_char_attr( c, VGA_CHAR_DEFAULT_ATTR );
-
-    // Update the cursor
-    VGA_enable_cursor();
-    VGA_update_cursor();
-}
+void VGA_display_char( char c ) { VGA_display_str( &c ); }
 
 void VGA_display_str( const char *s )
 {

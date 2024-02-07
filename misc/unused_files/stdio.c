@@ -13,7 +13,7 @@
 
 /* Includes */
 
-#include "isr_common.h"
+#include "irq_handler.h"
 
 /* Private Defines and Macros */
 
