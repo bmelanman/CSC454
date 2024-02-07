@@ -111,6 +111,8 @@ int PIC_set_mask( uint16_t irq )
         return -1;
     }
 
+    irq -= PIC1_OFFSET;
+
     if ( irq < PIC1_MIN_IRQ )
     {
         pic_data_port = PIC1_DATA;
