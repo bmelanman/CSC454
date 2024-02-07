@@ -77,6 +77,8 @@
 # error "Invalid COM port number!"
 #endif
 
+#define IS_BUFF_EMPTY() ( serial_tx->count == 0 )
+
 /* Private Types and Enums */
 
 // Circular FIFO buffer
@@ -91,13 +93,42 @@ typedef struct
 
 /* Global Variables */
 
-static serial_fifo_t serial_tx;
-
-static serial_fifo_t *serial_tx_ptr = &serial_tx;
+static serial_fifo_t _serial_tx_obj;
+static serial_fifo_t *serial_tx = &( _serial_tx_obj );
 
 /* Private Functions */
 
+#define tx_next() hw_write()
+#define tx_stop() ( serial_tx )->idle_flag = true
+
 int cons_get( serial_fifo_t *stream, uint8_t *d );
+
+void hw_write( void )
+{
+    uint8_t data;
+
+    if ( serial_tx->idle_flag )
+    {
+        // Clear the idle flag
+        serial_tx->idle_flag = false;
+
+        // Read the next byte from the TX buffer
+        if ( cons_get( serial_tx, &data ) == 0 )
+        {
+            // Write the data to the TX buffer
+            outb( SERIAL_PORT, data );
+        }
+    }
+    else
+    {
+        // Check if the HW TX buffer is empty
+        if ( IS_HW_TX_EMPTY() )
+        {
+            // Set the idle flag
+            serial_tx->idle_flag = true;
+        }
+    }
+}
 
 void serial_fifo_init( serial_fifo_t *fifo )
 {
@@ -121,56 +152,29 @@ void serial_fifo_init( serial_fifo_t *fifo )
     fifo->count = 0;
 }
 
-void hw_write( void )
-{
-    uint8_t data;
-
-    if ( serial_tx_ptr->idle_flag )
-    {
-        // Clear the idle flag
-        serial_tx_ptr->idle_flag = false;
-
-        // Read the next byte from the TX buffer
-        if ( cons_get( serial_tx_ptr, &data ) == 0 )
-        {
-            // Write the data to the TX buffer
-            outb( SERIAL_PORT, data );
-        }
-    }
-    else
-    {
-        // Check if the HW TX buffer is empty
-        if ( IS_HW_TX_EMPTY() )
-        {
-            // Set the idle flag
-            serial_tx_ptr->idle_flag = true;
-        }
-    }
-}
-
-#define tx_next() hw_write()
-#define tx_stop() ( serial_tx_ptr )->idle_flag = true
-
 /**
  * @brief To be used by a `consumer` to read the next byte from a standard IO stream. Note: This
  * call should be made from within an ISR that has been configured with an interrupt gate.
  * @param stream The stream to be read from.
  * @param d A pointer to where the byte should be stored.
- * @return 0 on success, 1 if there is no data available.
+ * @return 0 on success, -1 if there is no data available.
  */
 int cons_get( serial_fifo_t *stream, uint8_t *d )
 {
     // Error checking
     if ( stream == NULL || d == NULL )
     {
-        return 1;
+        return -1;
     }
 
     // Check if there is data to read
     if ( IS_EMPTY( stream ) )
     {
-        return 1;
+        return -1;
     }
+
+    // Disable interrupts
+    IRQ_disable();
 
     // Read the data
     *d = *stream->cons++;
@@ -190,6 +194,9 @@ int cons_get( serial_fifo_t *stream, uint8_t *d )
         tx_stop();
     }
 
+    // Restore interrupts
+    IRQ_reenable();
+
     return 0;
 }
 
@@ -198,44 +205,51 @@ int cons_get( serial_fifo_t *stream, uint8_t *d )
  * stream.
  * @param stream The stream to be written to.
  * @param d The byte to be written.
- * @return 0 on success, 1 if there is no space available.
+ * @return 0 on success, -1 if there is no space available.
  */
 int prod_add( serial_fifo_t *stream, uint8_t d )
 {
     // Error checking
     if ( stream == NULL )
     {
-        return 1;
+        return -1;
     }
+
+    int ret = 0;
 
     // Disable interrupts
-    CLI();
+    IRQ_disable();
 
     // Check if there is space to write data
-    if ( IS_FULL( stream ) )
+    if ( !( IS_FULL( stream ) ) )
     {
-        // Enable interrupts
-        STI();
+        // Write the data
+        *stream->prod++ = d;
 
-        return 1;
+        // Increment the count
+        ++stream->count;
+
+        // Wrap around
+        if ( stream->prod >= ( &stream->buff[SERIAL_BUFF_SIZE] ) )
+        {
+            stream->prod = &stream->buff[0];
+        }
+
+        // If this was the first byte written, initiate a HW write
+        if ( serial_tx->count == 1 )
+        {
+            tx_next();
+        }
+    }
+    else
+    {
+        ret = -1;
     }
 
-    // Write the data
-    *stream->prod++ = d;
+    // Restore interrupts
+    IRQ_reenable();
 
-    // Increment the count
-    ++stream->count;
-
-    // Wrap around
-    if ( stream->prod >= ( &stream->buff[SERIAL_BUFF_SIZE] ) )
-    {
-        stream->prod = &stream->buff[0];
-    }
-
-    // Enable interrupts
-    STI();
-
-    return 0;
+    return ret;
 }
 
 void serial_tx_irq_handler( int __unused irq, int __unused error, void __unused *arg )
@@ -248,22 +262,22 @@ void serial_tx_irq_handler( int __unused irq, int __unused error, void __unused 
     // Read the IIR to determine the cause of the interrupt
     uint8_t iir = inb( SERIAL_PORT + 2 );
 
-    // If its a LINE interrupt, read the LSR to clear it
-    if ( IS_LINE_IRQ( iir ) )
-    {
-        inb( SERIAL_PORT + 5 );
-    }
     // Check if the interrupt was caused by the TX buffer being empty
-    else if ( IS_TX_IRQ( iir ) )
+    if ( IS_TX_IRQ( iir ) )
     {
         // Clear the interrupt by reading from the IIR
         inb( SERIAL_PORT );
 
         // Set the idle flag
-        serial_tx_ptr->idle_flag = true;
+        serial_tx->idle_flag = true;
 
         // Iniate a HW write
         hw_write();
+    }
+    // If its a LINE interrupt, read the LSR to clear it
+    else if ( IS_LINE_IRQ( iir ) )
+    {
+        inb( SERIAL_PORT + 5 );
     }
     // Unknown interrupt
     else
@@ -278,7 +292,7 @@ void serial_tx_irq_handler( int __unused irq, int __unused error, void __unused 
 driver_status_t serial_driver_init( void )
 {
     // Initialize the TX buffer
-    serial_fifo_init( serial_tx_ptr );
+    serial_fifo_init( serial_tx );
 
     // Disable all interrupts
     outb( SERIAL_PORT + 1, 0x00 );
@@ -296,20 +310,19 @@ driver_status_t serial_driver_init( void )
     // Enable FIFO, clear them, trigger at a 1-byte threshold
     outb( SERIAL_PORT + 2, FIFO_INIT );
 
-    // Set in loopback mode, test the serial chip
+    // Enable loopback mode to test the serial chip
     outb( SERIAL_PORT + 4, MODEM_SELF_TEST );
-    // Test serial chip (send byte 0xAE and check if serial returns same byte)
+    // Send byte `0xAE` to check if serial returns same byte
     outb( SERIAL_PORT + 0, MODEM_TEST_BYTE );
 
-    // Check if serial is faulty (i.e: not same byte as sent)
+    // Serial is faulty if the byte received is not the same as the byte sent
     if ( inb( SERIAL_PORT + 0 ) != MODEM_TEST_BYTE )
     {
         OS_ERROR( "Serial COM%u is faulty, did not pass self test!\n", COM_PORT );
         return FAILURE;
     }
 
-    // If serial is not faulty set it in normal operation mode
-    // (not-loopback with IRQs enabled and OUT#1 and OUT#2 bits enabled)
+    // If serial is not faulty, setup normal operation mode (Enables DTR, RTS, OUT#1, and OUT#2).
     outb( SERIAL_PORT + 4, MODEM_INIT );
 
     // Enable the TX and Line status IRQs
@@ -355,17 +368,11 @@ size_t serial_write( const char *buff, size_t len )
     for ( i = 0; i < len; ++i )
     {
         // Try to add the byte to the buffer
-        if ( prod_add( serial_tx_ptr, buff[i] ) )
+        if ( prod_add( serial_tx, buff[i] ) )
         {
             // Stop writing to the buffer
             break;
         }
-    }
-
-    if ( !serial_tx_ptr->idle_flag )
-    {
-        // Initiate a HW write
-        tx_next();
     }
 
     return i;

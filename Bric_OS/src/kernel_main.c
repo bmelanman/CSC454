@@ -19,7 +19,7 @@
 
 int system_initialization( void );
 
-int kernel_main( void )
+int kernel_main( void* tag_ptr )
 {
     // Run initialization
     if ( system_initialization() )
@@ -28,47 +28,7 @@ int kernel_main( void )
         return 1;
     }
 
-    /*
-    // Test printing an escape sequence
-    // printk( "\033[2J" );  // Clear the screen
-
-    //// Test multiboot header parsing
-    // if ( multiboot_parse_tags() )
-    //{
-    //     OS_ERROR( "Multiboot header parsing failed!\n" );
-    //     return 1;
-    // }*/
-
-    char str[64] = "Hello0\n";
-    size_t len, str_len = strlen( str );
-
-    // Wait a bit
-    // for ( size_t i = 0; i < 1e6; i++ )
-    //{
-    //    io_wait_n( (uint64_t)2e7 );
-    //}
-
-    while ( 1 )
-    {
-        // DEBUG: Print a message to the VGA buffer
-        // OS_INFO( "Writing \"%s\" (%lu bytes) to serial output.\n", str, str_len );
-
-        // Write to the serial port
-        len = serial_write( str, str_len );
-
-        // DEBUG: Print a message to the VGA buffer
-        OS_INFO( "Wrote %lu bytes to serial output.\n", len );
-
-        str[5] += 1;
-
-        if ( str[5] > 'z' )
-        {
-            str[5] = '0';
-        }
-
-        // Wait a bit
-        io_wait_n( (uint64_t)1e7 );
-    }
+    HLT();
 
     return 0;
 }
@@ -81,6 +41,8 @@ int VGA_init( void )
         OS_ERROR( "VGA driver initialization failed!\n" );
         return 1;
     }
+
+    VGA_clear();
 
     OS_INFO( "VGA driver initialization is complete!\n" );
 
@@ -101,20 +63,6 @@ int SER_init( void )
     return 0;
 }
 
-int KB_init( void )
-{
-    // Initialize the keyboard driver
-    if ( ps2_keyboard_driver_init( true ) == FAILURE )
-    {
-        OS_ERROR( "Keyboard driver initialization failed!\n" );
-        return 1;
-    }
-
-    OS_INFO( "Keyboard driver initialization is complete!\n" );
-
-    return 0;
-}
-
 int ISR_init( void )
 {
     // Initialize the ISR
@@ -129,19 +77,25 @@ int ISR_init( void )
     return 0;
 }
 
+int KB_init( void )
+{
+    // Initialize the keyboard driver
+    if ( ps2_keyboard_driver_init( true ) == FAILURE )
+    {
+        OS_ERROR( "Keyboard driver initialization failed!\n" );
+        return 1;
+    }
+
+    OS_INFO( "Keyboard driver initialization is complete!\n" );
+
+    return 0;
+}
+
 int system_initialization( void )
 {
-    // Disable interrupts
-    CLI();
-
-    // Clear the screen
-    VGA_clear();
-
-    OS_INFO( "Beginning system initialization...\n" );
+    if ( VGA_init() ) return 1;
 
     if ( SER_init() ) return 1;
-
-    if ( VGA_init() ) return 1;
 
     if ( ISR_init() ) return 1;
 
@@ -149,17 +103,11 @@ int system_initialization( void )
 
     OS_INFO( "System initialization is complete!\n" );
 
-    // Wait a bit
-    // io_wait_n( (uint64_t)2e7 );
-
     // Print the splash screen
     splash_screen();
 
     // Enable interrupts
-    STI();
-
-    //// Clear the screen
-    // VGA_clear();
+    IRQ_enable();
 
     printk( "\n" );
 
