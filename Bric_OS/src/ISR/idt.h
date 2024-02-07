@@ -14,14 +14,12 @@
 
 /* Includes */
 
-# include "isr_common.h"
+# include "irq_handler.h"
 
 /* Defines */
 
 # define PRESENT_FLAG        ( 0x80U )  // 0b10000000
 # define INTERRUPT_GATE_FLAG ( 0x0EU )  // 0b00001110
-
-# define PRESENT_INTERRUPT_GATE ( PRESENT_FLAG | INTERRUPT_GATE_FLAG )
 
 /* Macros */
 
@@ -48,9 +46,6 @@ extern uint64_t* isr_stub_table[];
 
 // Initialize the IDT
 void idt_init( void );
-
-// Set an IDT descriptor
-void idt_set_descriptor( uint16_t irq, void* isr_addr, uint8_t flags );
 
 #endif /* IDT_H */
 
