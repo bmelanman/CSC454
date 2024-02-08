@@ -267,6 +267,14 @@ void VGA_display_char_attr( char c, uint8_t attr )
 
         // Newline
         case LF:
+            // If we're currently at the beginning of a line, and the previous line is full but
+            // doesnt end with a newline, we can ignore this newline
+            if ( vga_cursor.pos.col == 0 && vga_cursor.pos.row > 0 &&
+                 VGA_get_char( vga_cursor.pos.row - 1, VGA_WIDTH - 1 ) != '\0' &&
+                 VGA_get_char( vga_cursor.pos.row - 1, VGA_WIDTH - 1 ) != LF )
+            {
+                break;
+            }
             // Use a space as a placeholder
             VGA_PUTC( ' ', attr );
             // Trick the logic into thinking we need to move to the next line
@@ -285,7 +293,7 @@ void VGA_display_char_attr( char c, uint8_t attr )
 
         // Backspace & Delete
         case BS:
-        // TODO: Implement delete properly
+        // TODO: Implement delete properly ( requires moving characters to the left :/ )
         case DEL:
             VGA_process_backspace();
 
