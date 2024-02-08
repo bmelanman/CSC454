@@ -378,4 +378,20 @@ size_t serial_write( const char *buff, size_t len )
     return i;
 }
 
+/**
+ * @brief Write a string to the serial port.
+ * @param str - A pointer to the string to be written.
+ */
+void serial_print( const char *str )
+{
+    // Error checking
+    if ( str == NULL )
+    {
+        return;
+    }
+
+    // Write the string to the serial port
+    serial_write( str, strlen( str ) );
+}
+
 /*** End of File ***/

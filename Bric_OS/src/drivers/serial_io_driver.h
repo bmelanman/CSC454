@@ -28,6 +28,8 @@ driver_status_t serial_driver_init( void );
 
 size_t serial_write( const char *buff, size_t len );
 
+void serial_print( const char *str );
+
 #endif /* SERIAL_IO_DRIVER_H */
 
 /*** End of File ***/
