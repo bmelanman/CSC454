@@ -42,7 +42,8 @@
 # define OS_ERROR( ... ) printk( "ERROR: " __VA_ARGS__ )
 
 // Halt the CPU
-# define HLT() asm volatile( "hlt" )
+# define HLT() \
+        while ( 1 ) asm volatile( "hlt" )
 
 /* Typedefs */
 
