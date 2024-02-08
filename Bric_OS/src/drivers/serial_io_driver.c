@@ -283,7 +283,7 @@ void serial_tx_irq_handler( int __unused irq, int __unused error, void __unused 
     else
     {
         // DEBUG: Print a message to the screen
-        OS_INFO( "Serial TX IRQ: Unknown interrupt, IIR: %X\n", iir );
+        OS_INFO( "Serial TX IRQ: Unknown interrupt, IIR: 0x%X\n", iir );
     }
 }
 

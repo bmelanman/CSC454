@@ -405,7 +405,7 @@ int process_scan_code( int scan_code )
             // Make sure the key is valid
             if ( curr_code >= ASCII_TABLE_SIZE )
             {
-                OS_ERROR( "Invalid scan code? Code = %X\n", curr_code );
+                OS_ERROR( "Invalid scan code? Code = 0x%X\n", curr_code );
                 return NO_CHAR;
             }
 
@@ -425,7 +425,7 @@ int process_scan_code( int scan_code )
             if ( key == NUL )
             {
                 // DEBUG: Print the scan code
-                OS_INFO( "No character for scan code %X\n", curr_code );
+                OS_INFO( "No character for scan code 0x%X\n", curr_code );
 
                 // Return no character
                 return NO_CHAR;
@@ -496,7 +496,7 @@ driver_status_t ps2_keyboard_driver_init( bool irq_enable )
     if ( status_byte != CONTLR_SELF_TEST_OK )
     {
         // Send an error message
-        OS_ERROR( "PS/2 Controller Self Test Failed! Exit code = %X\n\n", status_byte );
+        OS_ERROR( "PS/2 Controller Self Test Failed! Exit code = 0x%X\n\n", status_byte );
 
         // Return failure
         return FAILURE;
@@ -536,7 +536,7 @@ driver_status_t ps2_keyboard_driver_init( bool irq_enable )
 
         OS_ERROR(
             "PS/2 Port 1 Interface Test Failed! "
-            "Exit code = %X ( %s )\n\n",
+            "Exit code = 0x%X ( %s )\n\n",
             status_byte, status_byte_err_msg
         );
 
@@ -549,7 +549,7 @@ driver_status_t ps2_keyboard_driver_init( bool irq_enable )
     if ( status_byte != 0 )
     {
         // Send an error message
-        OS_ERROR( "PS/2 Port 1 Reset Failed! Exit code = %X\n\n", status_byte );
+        OS_ERROR( "PS/2 Port 1 Reset Failed! Exit code = 0x%X\n\n", status_byte );
 
         // Return failure
         return FAILURE;
@@ -572,7 +572,7 @@ driver_status_t ps2_keyboard_driver_init( bool irq_enable )
             break;
         }
 
-        OS_ERROR( "Get scan code returned %X\n", status_byte );
+        OS_ERROR( "Get scan code returned 0x%X\n", status_byte );
         return FAILURE;
     }
 
@@ -582,7 +582,7 @@ driver_status_t ps2_keyboard_driver_init( bool irq_enable )
 
     if ( keyboard_read( true ) != KBD_ACK )
     {
-        OS_ERROR( "Get scan code returned %X\n\n", status_byte );
+        OS_ERROR( "Get scan code returned 0x%X\n\n", status_byte );
         return FAILURE;
     }
 
@@ -590,7 +590,7 @@ driver_status_t ps2_keyboard_driver_init( bool irq_enable )
 
     if ( status_byte != SCAN_CODE_SET2 )
     {
-        OS_ERROR( "Get scan code returned %X\n\n", status_byte );
+        OS_ERROR( "Get scan code returned 0x%X\n\n", status_byte );
         return FAILURE;
     }
 

@@ -37,7 +37,7 @@ void test_printk( void )
     printk( "  UINT_MAX........%u                    \n", UINT_MAX );
     printk( "                                        \n" );
     printk( "Testing %%X:                            \n" );
-    printk( "  0x12345678......%X                  \n", 0x12345678 );
+    printk( "  0x12345678......0x%X                  \n", 0x12345678 );
     printk( "                                        \n" );
     printk( "Testing %%c:                            \n" );
     printk( "  Test character..%c                    \n", '@' );
