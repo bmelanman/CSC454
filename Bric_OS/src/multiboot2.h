@@ -16,7 +16,7 @@
 
 /* Public Functions */
 
-// int multiboot_parse_tags( void );
+int multiboot_parse_tags( void *tag_ptr );
 
 /*  How many bytes from the start of the file we search for the header. */
 # define MULTIBOOT_SEARCH       ( 32768U )

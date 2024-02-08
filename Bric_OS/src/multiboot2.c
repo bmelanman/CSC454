@@ -25,6 +25,8 @@
 
 /* Private Types and Enums */
 
+typedef struct multiboot_header mb_header_t;
+
 /* Global Variables */
 
 /* Private Functions */
@@ -38,65 +40,30 @@
 
 /* Public Functions */
 
-int multiboot_parse_tags( struct multiboot_header multiboot_header )
+int multiboot_parse_tags( void *tag_ptr )
 {
-    // Verify magic number
-    if ( !VERIFY_MAGIC( multiboot_header ) )
+    // Read the multiboot header
+    mb_header_t *mb_head = (mb_header_t *)tag_ptr;
+
+    // Verify the magic number
+    if ( !VERIFY_MAGIC( *mb_head ) )
     {
-        return 1;
+        return -1;
     }
 
-    // Verify checksum
-    if ( !VERIFY_CHECKSUM( multiboot_header ) )
+    // Verify the checksum
+    if ( !VERIFY_CHECKSUM( *mb_head ) )
     {
-        return 1;
+        return -1;
     }
 
-    // uint32_t i;
-
-    // Print the header fields
-    printk( "Multiboot2 Header:     \n" );
-    printk( "  Magic.............%x \n", multiboot_header.magic );
-    printk( "  Arch..............%u \n", multiboot_header.architecture );
-    printk( "  Header Length.....%u \n", multiboot_header.header_length );
-    printk( "  Checksum..........%x \n", multiboot_header.checksum );
+    // Print the header info
+    printk( "Multiboot Header:      \n" );
+    printk( "  Magic Number...0x%X    \n", mb_head->magic );
+    printk( "  Architecture...0x%X    \n", mb_head->architecture );
+    printk( "  Header Length..0x%X    \n", mb_head->header_length );
+    printk( "  Checksum.......0x%X    \n", mb_head->checksum );
     printk( "                       \n" );
-
-    // Parse the tags!
-    // uint8_t *curr_tag_addr = (uint8_t *)multiboot_header.tags;
-
-    //// First tag is the memory map
-    // mb_mmap_t *mmap_tag = (mb_mmap_t *)curr_tag_addr;
-
-    //// Verify fields
-    // printk( "Memory Map Tag:        \n" );
-    // printk( "  Type..............%u \n", mmap_tag->type );
-    // printk( "  Size..............%u \n", mmap_tag->size );
-    // printk( "  Entry Size........%u \n", mmap_tag->entry_size );
-    // printk( "  Entry Version.....%u \n", mmap_tag->entry_version );
-    // printk( "                       \n" );
-
-    //// Calculate the number of entries
-    //// uint32_t num_entries = ( mmap_tag->size - TAG_INFO_SIZE ) / mmap_tag->entry_size;
-
-    //// if ( num_entries == 0 )
-    ////{
-    ////     OS_ERROR( "No memory map entries found!\n" );
-    ////     return 1;
-    //// }
-
-    //// Print the entries
-    // for ( i = 0; i < 0;++i )
-    //{
-    //     mb_mmap_entry_t *entry = &mmap_tag->entries[i];
-
-    //    printk( "Memory Map Entry %u:   \n", i );
-    //    printk( "  Address...........%u \n", entry->addr );
-    //    printk( "  Length............%u \n", entry->len );
-    //    printk( "  Type..............%u \n", entry->type );
-    //    printk( "  Reserved..........%u \n", entry->reserved );
-    //    printk( "                       \n" );
-    //}
 
     return 0;
 }
