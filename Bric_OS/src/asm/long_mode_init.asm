@@ -26,10 +26,16 @@ long_mode_start:
     ;mov qword [0xb8000], rax
     ;hlt
 
+    ; Pop the multiboot information from the stack and pass it to the kernel
+    pop rdi
+    pop rsi
+
     ; run the kernel
     call kernel_main
 
+end:
     hlt
+    jmp end
 
 reload_segments:
     ; Reload CS register containing code selector

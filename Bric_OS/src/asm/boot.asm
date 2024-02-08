@@ -22,6 +22,13 @@ bits 32
 start:
     mov esp, stack_top
 
+    ; Push the multiboot pointer and magic value
+    sub esp, $64
+    push $0
+    push ebx
+    push $0
+    push eax
+
     call check_multiboot
     call check_cpuid
     call check_long_mode
@@ -51,6 +58,7 @@ error:
     hlt
 
 check_multiboot:
+    ; Check if the multiboot magic number is present in the correct register
     cmp eax, 0x36d76289
     jne .no_multiboot
     ret
