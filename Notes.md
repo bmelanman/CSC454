@@ -87,3 +87,64 @@ Virtaul Memory Layout
 [ Entry 31:                         ] User Space Memory End
 [-----------------------------------] 0xFFFFFFFFFFFFFFFF
 ```
+
+## Context Swapping
+
+```c
+struct reg_cxt
+{
+    uint64_t rsp;
+    uint64_t rflags;
+    uint64_t rip;
+    uint64_t cs;
+    uint64_t ss;
+    ...
+    uint64_t fs;
+    uint64_t gs;
+    uint64_t rax;
+    uint64_t rbx;
+    ...
+    uint64_t r8;
+    uint64_t r9;
+    ...
+    uint64_t r14;
+    uint64_t r15;
+};
+```
+
+### Required Registers to Save/Resore
+
+**NOTE:** Floating point is not required, but saving all FP registers would be required if implemented.
+
+- RBP, RSP, RIP, RFLAGS
+- CS, SS, DS, ES, FS, GS
+- RAX, RBX, RCX, RDX, RDI, RSI
+- R8, R9, R10, R11, R12, R13, R14, R15
+
+
+### Process Swapping
+
+- Context should be saved at the **END** of an interrupt.
+
+- Keep two global variables, one for the current process and one for the next process.
+
+- The scheduler simply sets the next process global.
+
+- Leverage your existing interrupt handler to perform the stack switch. After the C interrupt dispatch function returns to the assembly portion, check if the next process is different than the current process. If so save all the registers into the current process's context, load all the next process's context values (note that some are on the stack), update the current process global, update the next process global, and then let the code continue on to call "iretq".
+
+- This arrangement permits a context switch on every interrupt, assuming the scheduler picks a different process.
+
+- Both the exit and yield implementations are small since they are already using traps. For instance, yield simply calls the reschedule function.
+
+- PROC_run can just set the current process global to a pointer to the statically allocated main process's context and call yield.
+
+- Keep your scheduler simple to start with. Round robin is a good choice.
+
+### Cooperative VS Preemptive
+
+- Cooperative Scheduling:
+    - Call `yield` to pass priority to another thread.
+
+- Preemptive Scheduling:
+    - Use a timer to trigger an interrupt, which then passes priority too another thread
+    - Has the potential to create MANY race conditions.
