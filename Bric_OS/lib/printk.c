@@ -11,7 +11,10 @@
 
 #include "printk.h"
 
+/* Includes */
+
 #include "common.h"
+#include "serial_io_driver.h"
 #include "vga_driver.h"
 
 /* Private Defines and Macros */
@@ -31,7 +34,8 @@ typedef enum {
 
 /* Private Functions */
 
-#define print_str( s ) VGA_display_str( s )
+#define print_VGA( s )       VGA_display_str( s )
+#define print_UART( s, len ) serial_write( s, len )
 
 void format_char( char *str, char c ) { strncat( str, &c, 1 ); }
 
@@ -60,23 +64,6 @@ void format_llu_base_n( char *str, ullong n, uint8_t base, uint8_t text_case )
     if ( n / base )
     {
         format_llu_base_n( str, n / base, base, text_case );
-    }
-    else
-    {
-        // Before the first digit, add the base prefix if necessary
-        switch ( base )
-        {
-            case BASE_8:
-                format_str( str, "0o" );
-                break;
-
-            case BASE_16:
-                format_str( str, "0x" );
-                break;
-
-            default:
-                break;
-        }
     }
 
     uint8_t digit_d = (uint8_t)( n % base );
@@ -147,6 +134,19 @@ void format_ll_base_n( char *str, llong n, uint8_t base, uint8_t text_case )
         }                                                                                \
     } while ( 0 )
 
+void print_clear_buff( char *buff )
+{
+    size_t len = strlen( buff );
+
+    // Output to VGA
+    print_VGA( buff );
+
+    // Output to UART
+    print_UART( buff, len );
+
+    memset( buff, 0, len );
+}
+
 /* Public Functions */
 
 __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
@@ -165,9 +165,7 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
         // Check if the output string is full
         if ( strlen( output_str ) >= ( output_len - 32 ) )
         {
-            print_str( output_str );
-
-            memset( output_str, 0, output_len );
+            print_clear_buff( output_str );
         }
 
         // Check for format specifier (i.e. '%')
@@ -234,7 +232,7 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
         }
     }
 
-    print_str( output_str );
+    print_clear_buff( output_str );
 
     va_end( args );
 
