@@ -1,8 +1,9 @@
 # Makefile for Bric_OS
 # Created by bryc_wall on 12/29/2023
 
-LOG_FILE := ../misc/qemu-system-x86_64.log
-SERIAL_FILE := ../misc/serial.log
+SYSTEM_LOG 	:= ../misc/qemu-system-x86_64.log
+SERIAL_LOG 	:= ../misc/serial.log
+SERIAL_PIPE := ../misc/serial_pipe
 
 # Target OS parameters
 TARGET 	:= Bric_OS
@@ -56,9 +57,9 @@ LD_FLAGS 	:= -nostdlib $(INCLUDES)
 CC_FLAGS 	:= -Wall -Wextra -g -ffreestanding $(LD_FLAGS)
 
 # QEMU flags
-QEMU_FLAGS	:= -s -d int,in_asm -D $(LOG_FILE) -no-reboot $(QEMU_USER_FLAGS)
-QEMU_DISPLY	:= -display curses
-QEMU_SERIAL	:= -serial file:$(SERIAL_FILE)
+QEMU_FLAGS	:= -s -d int,in_asm -D $(SYSTEM_LOG) -no-reboot $(QEMU_USER_FLAGS)
+QEMU_DISPLY	:= -display none
+QEMU_SERIAL	:= -chardev pipe,id=serial,path=$(SERIAL_PIPE),logfile=$(SERIAL_LOG) -serial chardev:serial
 QEMU_DRIVE	:= -drive format=raw,file=$(TARGET_IMG)
 
 all: $(KERNEL_BIN)
@@ -72,9 +73,15 @@ test:
 	@echo 'OBJECTS:'
 	@for obj in $(OBJECTS); do echo $$obj; done
 
-run: clean $(TARGET_IMG)
-	qemu-system-$(ARCH) $(QEMU_FLAGS) $(QEMU_DISPLY) $(QEMU_DRIVE) $(QEMU_SERIAL)
+run: clean mkpipes $(TARGET_IMG)
+	qemu-system-$(ARCH) $(QEMU_FLAGS) $(QEMU_DISPLY) $(QEMU_SERIAL) $(QEMU_DRIVE)
 	@echo ""
+
+mkpipes:
+	@[ -p $(SERIAL_PIPE).in ] || mkfifo $(SERIAL_PIPE).in $(SERIAL_PIPE).out
+
+debug: QEMU_FLAGS += -S
+debug: run
 
 $(TARGET_IMG): $(BLANK_IMG) $(KERNEL_BIN) $(GRB_CFG)
 	cp $(BLANK_IMG) $@
@@ -144,4 +151,4 @@ clean:
 	@rmdir $(FS_MNT) 2>/dev/null || true
 	@rm -rf $(OBJ_DIR) $(KERNEL_BIN) $(TARGET_IMG)
 
-.PHONY: all img run test clean clean-all count
+.PHONY: all img run test clean clean-all count debug
