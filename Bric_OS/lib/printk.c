@@ -28,8 +28,8 @@
 #define BASE_16 ( 16U )
 
 typedef enum {
-    LOWERCASE = 0U,
-    UPPERCASE = 32U  // 'a' - 'A' = 32
+    LOWERCASE = 32U,  // 'a' - 'A' = 32
+    UPPERCASE = 0U
 } char_case_t;
 
 /* Private Functions */
