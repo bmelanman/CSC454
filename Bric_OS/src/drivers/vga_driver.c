@@ -286,8 +286,11 @@ void VGA_display_char_attr( char c, uint8_t attr )
         case TAB:
             // Use a space as a placeholder
             VGA_PUTC( ' ', attr );
-            // Increment the cursor
-            vga_cursor.pos.col += TAB_LENGTH;
+            // Increment the cursor until we're at the next tab stop
+            while ( vga_cursor.pos.col % TAB_LENGTH != 0 )
+            {
+                vga_cursor.pos.col++;
+            }
 
             break;
 
