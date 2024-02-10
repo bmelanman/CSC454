@@ -119,10 +119,14 @@ int atomic_test_and_set( int* value, int compare, int swap )  // NOLINT
 }
 
 // Atomic swap: swap the values of two variables atomically
-// int atomic_swap( int* valA, int* valB )  // NOLINT
-//{
-//    return __sync_val
-//}
+int atomic_swap( int* valA, int* valB )
+{
+    if ( valA == valB ) return 0;
+
+    *valB = atomic_test_and_set( valA, *valA, *valB );
+
+    return 0;
+}
 
 #pragma endregion
 

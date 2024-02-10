@@ -101,6 +101,9 @@ void irqrestore( unsigned long flags );
 // Atomically compare and swap a value
 int atomic_test_and_set( int* value, int compare, int swap );
 
+// Atomically swap two values
+int atomic_swap( int* valA, int* valB );
+
 # pragma endregion
 
 # pragma region Binary Semaphore
@@ -108,16 +111,16 @@ int atomic_test_and_set( int* value, int compare, int swap );
 // Binary semaphore type
 typedef struct _binary_semaphore_s
 {
-    bool locked;
+    int locked;
 } binary_semaphore_t;
 
 // Lock a binary semaphore
 // void binary_semaphore_lock( binary_semaphore_t* sem );
 
-# define binary_semaphore_lock( sem )                                       \
-        while ( atomic_test_and_set( (int*)&( sem ).locked, false, true ) ) \
-        {                                                                   \
-            io_wait();                                                      \
+# define binary_semaphore_lock( sem )                             \
+        while ( atomic_test_and_set( &sem.locked, false, true ) ) \
+        {                                                         \
+            io_wait();                                            \
         }
 
 // Unlock a binary semaphore
