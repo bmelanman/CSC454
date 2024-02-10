@@ -14,7 +14,12 @@
 
 /* Includes */
 
+# include "common.h"
+# include "multiboot2.h"
+
 /* Defines */
+
+# define PAGE_SIZE ( 4096U )  // 4 KB Pages
 
 /* Macros */
 
@@ -22,9 +27,15 @@
 
 /* Public Functions */
 
+driver_status_t MMU_init( void *tag_ptr );
+
 void *MMU_pf_alloc( void );
 
+void *MMU_pf_alloc_n( int n );
+
 void MMU_pf_free( void *pf );
+
+void MMU_pf_free_n( void *pf, int n );
 
 #endif /* MMU_DRIVER_H */
 
