@@ -19,6 +19,8 @@
     "utility": "c",
     "variant": "c",
     "__hash_table": "c",
-    "limits": "c"
+    "limits": "c",
+    "typeinfo": "c",
+    "cerrno": "c"
 }
 }

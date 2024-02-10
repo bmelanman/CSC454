@@ -4,6 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/Bric_OS/src/**/*",
+                "${workspaceFolder}/Bric_OS/src/*",
                 "${workspaceFolder}/Bric_OS/lib/"
             ],
             "defines": [],
