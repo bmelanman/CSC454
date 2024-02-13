@@ -6,8 +6,13 @@ SECTIONS
 
     .boot :
     {
-        /* ensure that the multiboot header is at the beginning */
+        /* Kernel Starting Address */
+        kernel_start = .;
+
+        /* Place the multiboot header at the beginning */
         *(.multiboot)
+
+        *(.boot)
     }
 
     .text :
@@ -15,12 +20,12 @@ SECTIONS
         *(.text)
     }
 
-    .rodata :
+    .rodata ALIGN (0x1000) :
     {
         *(.rodata)
     }
 
-    .data :
+    .data ALIGN (0x1000) :
     {
         *(.data)
     }
@@ -28,5 +33,9 @@ SECTIONS
     .bss :
     {
         *(.bss)
+
+        /* Kernel Ending Address, aligned to 4k */
+        . = ALIGN(0x1000);
+        kernel_end = .;
     }
 }
