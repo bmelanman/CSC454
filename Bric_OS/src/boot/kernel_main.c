@@ -25,19 +25,37 @@
 
 int system_initialization( unsigned long magic, unsigned long addr );
 
+void test_page( uint8_t *page )
+{
+    uint j, test_pattern = ( (uint64_t)page + 0xA5 ) & 0xFF;
+
+    // Write a test pattern to the page
+    OS_INFO( "Writing test pattern to page...\n" );
+
+    memset( page, (uint8_t)test_pattern, PAGE_SIZE );
+
+    // Verify the test pattern
+    for ( j = 0; j < PAGE_SIZE; j++ )
+    {
+        if ( *( page + j ) != test_pattern )
+        {
+            OS_ERROR_HALT( "Memory test failed!\n" );
+        }
+    }
+
+    printk( "\n" );
+}
+
 int kernel_main( unsigned long magic, unsigned long addr )
 {
     // Run initialization
     if ( system_initialization( magic, addr ) )
     {
-        OS_ERROR( "\nSystem initialization failed!\n" );
+        OS_ERROR( "System initialization failed!\n" );
         HLT();
     }
 
-    // parse_multiboot2( magic, addr );
-
-    uint i, j, num_pages = 10;
-    uint8_t test_pattern;
+    uint i, num_pages = 10;
 
     // Test the memory manager
     OS_INFO( "Testing memory manager...\n" );
@@ -49,37 +67,39 @@ int kernel_main( unsigned long magic, unsigned long addr )
     {
         page_frames[i] = MMU_pf_alloc();
 
-        test_pattern = (uint8_t)( i + 0xA5 );
-
         OS_INFO( "Page %d: %p\n", i, page_frames[i] );
 
-        // Write a test pattern to the page
-        OS_INFO( "Writing test pattern to page %d...\n", i );
-
-        memset( page_frames[i], test_pattern, PAGE_SIZE );
-
-        // Verify the test pattern
-        for ( j = 0; j < PAGE_SIZE; j++ )
-        {
-            if ( *( ( (uint8_t *)( page_frames[i] ) ) + j ) != test_pattern )
-            {
-                OS_ERROR( "\nMemory test failed!\n" );
-                HLT();
-            }
-        }
-
-        printk( "\n" );
+        test_page( page_frames[i] );
     }
 
     // Free the pages
-    OS_INFO( "Freeing %d pages...\n", num_pages );
+    OS_INFO( "Freeing %d pages...\n", num_pages >> 1 );
 
-    for ( i = 0; i < num_pages; i++ )
+    for ( i = 0; i < num_pages >> 1; ++i )
     {
         MMU_pf_free( page_frames[i] );
     }
 
-    // HLT();
+    // Allocate a page after deallocating some
+    page_frames[--i] = MMU_pf_alloc();
+
+    OS_INFO( "Page %d: %p\n", i, page_frames[i] );
+
+    test_page( page_frames[i] );
+
+    // Free the remaining pages
+    OS_INFO( "Freeing %d pages...\n", num_pages >> 1 );
+
+    for ( ; i < num_pages; ++i )
+    {
+        MMU_pf_free( page_frames[i] );
+    }
+
+    OS_INFO( "Memory manager test is complete.\n" );
+
+    OS_INFO( "Done!\n" );
+
+    HLT();
 
     return 0;
 }
