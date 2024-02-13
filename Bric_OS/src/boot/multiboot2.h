@@ -28,8 +28,6 @@
 
 # define MULTIBOOT_ELF_SHF_ALLOC ( 0b10U )
 
-# define MEM_IS_AVAILABLE( entry ) ( ( entry ).type == MULTIBOOT_MEMORY_AVAILABLE )
-
 /* Public Types and Structs */
 
 typedef struct multiboot_tag mb_tag_t;
