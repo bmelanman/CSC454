@@ -41,9 +41,21 @@
 // Print an error message
 # define OS_ERROR( ... ) printk( "ERROR: " __VA_ARGS__ )
 
+// Print an error message and halt the CPU
+# define OS_ERROR_HALT( ... )                                                     \
+        do                                                                        \
+        {                                                                         \
+            OS_ERROR( __VA_ARGS__ );                                              \
+            OS_ERROR( "This error has occurred at %s:%d\n", __FILE__, __LINE__ ); \
+            HLT();                                                                \
+        } while ( 0 )
+
 // Halt the CPU
 # define HLT() \
         while ( 1 ) asm volatile( "hlt" )
+
+// Align x to the next multiple of n
+# define ALIGN( x, n ) ( ( ( (x)-1 ) | ( (n)-1 ) ) + 1 )
 
 /* Typedefs */
 
