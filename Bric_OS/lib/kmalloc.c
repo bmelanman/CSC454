@@ -1,35 +1,37 @@
-/** @file malloc.c
+/** @file kmalloc.c
  *
- * @brief A custom implementation of malloc, free, calloc, and realloc.
+ * @brief A custom implementation of kmalloc, kfree, kcalloc, and krealloc.
  */
 
-#include "malloc.h"
+#include "kmalloc.h"
 
 #include "mmu_driver.h"
 
-/* Private Defines and Macros */
+header_t *kernel_heap_head = NULL;
 
-#define DEBUG 0
-
-#define sbrk( n ) MMU_pf_alloc_n( n )
-
-/* Global Variables */
-
-header_t *__mem_head = NULL;
+/**
+ * @brief Increments the program's data space by increment bytes. Calling `sbrk()` with an
+ *        increment of 0 can be used to find the current location of the program break.
+ */
+void *sbrk( uint64_t increment )
+{
+    (void)increment;
+    return NULL;
+}
 
 /**
  * @brief Attemps to return memory allocated with `sbrk()` to the OS.
  */
-void malloc_cleanup( void )
+void kmalloc_cleanup( void )
 {
-    // __mem_head must exist
-    if ( !IS_VALID( __mem_head ) )
+    // kernel_heap_head must exist
+    if ( !IS_VALID( kernel_heap_head ) )
     {
         return;
     }
 
     int num_unfree_blks = 0;
-    header_t *b = __mem_head;
+    header_t *b = kernel_heap_head;
     void *ret = NULL;
 
     // Traverse to the end of the linked list
@@ -40,19 +42,22 @@ void malloc_cleanup( void )
         {
             num_unfree_blks++;
 
-            free( b->ptr );
-            b = __mem_head;
+            kfree( b->ptr );
+            b = kernel_heap_head;
         }
         b = b->next;
     }
 
     // Report unfreed blocks
-    OS_WARN( "%d block(s) were not freed!\n", num_unfree_blks );
+    if ( num_unfree_blks > 0 )
+    {
+        OS_WARN( "There are %d unfreed blocks!\n", num_unfree_blks );
+    }
 
     // Check if we can give memory back to the OS
-    if ( (uintptr_t)__mem_head->ptr + __mem_head->size == (uintptr_t)sbrk( 0 ) )
+    if ( (uintptr_t)kernel_heap_head->ptr + kernel_heap_head->size == (uintptr_t)sbrk( 0 ) )
     {
-        ret = (header_t *)sbrk( (int64_t)__mem_head->size * -1 );
+        ret = (header_t *)sbrk( (int64_t)kernel_heap_head->size * -1 );
 
         if ( ret != (void *)( -1 ) )
         {
@@ -190,15 +195,15 @@ header_t *extend_mem( size_t min_blk_size, header_t *prev, header_t *next )
  */
 header_t *get_empty_mem( size_t size )
 {
-    // Make sure __mem_head exists
-    if ( !IS_VALID( __mem_head ) )
+    // Make sure kernel_heap_head exists
+    if ( !IS_VALID( kernel_heap_head ) )
     {
-        __mem_head = extend_mem( BIN_SIZE, NULL, NULL );
-        // atexit( malloc_cleanup );
+        kernel_heap_head = extend_mem( BIN_SIZE, NULL, NULL );
+        // atexit( kmalloc_cleanup );
     }
 
-    // Start at __mem_head
-    header_t *b = __mem_head;
+    // Start at kernel_heap_head
+    header_t *b = kernel_heap_head;
     header_t *b_alt = NULL;
 
     // Traverse the linked list
@@ -258,7 +263,7 @@ header_t *get_empty_mem( size_t size )
     return b;
 }
 
-void *malloc( size_t size )
+void *kmalloc( size_t size )
 {
     // Check for size = 0 so we never have a block of size 0
     if ( size < 1 )
@@ -286,12 +291,12 @@ void *malloc( size_t size )
         return NULL;
     }
 
-    // DEBUG_MALLOC_MSG( "malloc(%zu) => (ptr=%p, size=%zu)\n", size, b->ptr, b->size );
+    OS_INFO( "kmalloc(%lu) => (ptr=%p, size=%u)\n", size, b->ptr, b->size );
 
     return b->ptr;
 }
 
-void *calloc( size_t nmemb, size_t size )
+void *kcalloc( size_t nmemb, size_t size )
 {
     // Align the size to 16 bytes
     size_t total_size = ROUND_UP( nmemb * size, ALIGN_SIZE );
@@ -304,7 +309,7 @@ void *calloc( size_t nmemb, size_t size )
     }
 
     // Allocate and check for errors
-    void *ptr = malloc( total_size );
+    void *ptr = kmalloc( total_size );
     if ( IS_NULL( ptr ) )
     {
         return NULL;
@@ -312,25 +317,25 @@ void *calloc( size_t nmemb, size_t size )
 
     memset( ptr, 0, GET_HEADER( ptr )->size );
 
-    // DEBUG_MALLOC_MSG(
-    //     "calloc(%zu, %zu) => (ptr=%p, size=%zu)\n", nmemb, size, ptr, GET_HEADER( ptr )->size
-    //);
+    OS_INFO(
+        "kcalloc(%lu, %lu) => (ptr=%p, size=%u)\n", nmemb, size, ptr, GET_HEADER( ptr )->size
+    );
 
     return ptr;
 }
 
-void *realloc( void *ptr, size_t size )
+void *krealloc( void *ptr, size_t size )
 {
-    // realloc(NULL, size) --> malloc(size)
+    // krealloc(NULL, size) --> kmalloc(size)
     if ( IS_NULL( ptr ) )
     {
-        return malloc( size );
+        return kmalloc( size );
     }
 
-    // realloc(p, 0) --> free(p)
+    // krealloc(p, 0) --> kfree(p)
     if ( size == 0 )
     {
-        free( ptr );
+        kfree( ptr );
         return NULL;
     }
 
@@ -378,27 +383,26 @@ void *realloc( void *ptr, size_t size )
     // If that wasn't enough, get a new block of memory
     if ( b->size < total_size )
     {
-        new_ptr = malloc( total_size );
+        new_ptr = kmalloc( total_size );
 
         // Copy the data from the old block to the new one
         memcpy( new_ptr, ptr, b->size );
 
         // Free the old block
-        free( ptr );
+        kfree( ptr );
     }
 
     // Split the new block if necessary
     split_block( GET_HEADER( new_ptr ), size );
 
-    // DEBUG_MALLOC_MSG(
-    //     "realloc(%p, %zu) => (ptr=%p, size=%zu)\n", ptr, size, new_ptr, GET_HEADER( new_ptr
-    //     )->size
-    //);
+    OS_INFO(  // NOLINT
+        "krealloc(%p, %lu) => (ptr=%p, size=%u)\n", ptr, size, new_ptr, GET_HEADER( new_ptr )->size
+    );
 
     return new_ptr;
 }
 
-void free( void *ptr )
+void kfree( void *ptr )
 {
     // Check for NULL input
     if ( IS_NULL( ptr ) )
@@ -407,15 +411,15 @@ void free( void *ptr )
     }
 
     // Simple check to make sure the pointer is within the know address space
-    if ( ptr < (void *)__mem_head || (void *)( (uintptr_t)sbrk( 0 ) - MIN_BLK_SIZE ) < ptr )
+    if ( ptr < (void *)kernel_heap_head || (void *)( (uintptr_t)sbrk( 0 ) - MIN_BLK_SIZE ) < ptr )
     {
-        // UTEST_MALLOC_MSG( "free(%lu): Invalid pointer!\n", ptr );
+        OS_WARN( "kfree(%p): Invalid pointer!\n", ptr );
         // errno = EFAULT;
         return;
     }
 
     // Traverse the linked list to get the ptr's corrsponding block
-    header_t *b = __mem_head;
+    header_t *b = kernel_heap_head;
     while ( IS_VALID( b ) )
     {
         // Check if the ptr is within the current block's memory space
@@ -430,7 +434,7 @@ void free( void *ptr )
     // Check if we found a valid block
     if ( IS_NULL( b ) )
     {
-        // UTEST_MALLOC_MSG( "free(%lu): Invalid pointer!\n", ptr );
+        OS_ERROR( "kfree(%p): Invalid pointer!\n", ptr );
         // errno = EFAULT;
         return;
     }
@@ -444,7 +448,7 @@ void free( void *ptr )
     // Try to merge the current block with the previous block
     merge_blocks( b->prev, b );
 
-    // DEBUG_MALLOC_MSG( "free(%p)\n", ptr );
+    OS_INFO( "kfree(%p)\n", ptr );
 }
 
 /*** end of file ***/

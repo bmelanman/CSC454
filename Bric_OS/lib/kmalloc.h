@@ -1,19 +1,10 @@
-/** @file malloc.h
+/** @file kmalloc.h
  *
- * @brief A custom implementation of malloc, free, calloc, and realloc.
+ * @brief A custom implementation of kmalloc, kfree, kcalloc, and krealloc.
  */
 
-#ifndef MALLOC_H
-# define MALLOC_H
-
-// # include <errno.h>
-// # include <stdarg.h>
-// # include <stdbool.h>
-// # include <stdint.h>
-// # include <stdio.h>
-// # include <stdlib.h>
-// # include <string.h>
-// # include <unistd.h>
+#ifndef KMALLOC_H
+# define KMALLOC_H
 
 # include "common.h"
 
@@ -32,7 +23,7 @@
 # define IS_FREE( b )      ( b->free == true )
 
 /* Memory Block Struct */
-typedef struct __packed _header_s header_t;
+typedef struct _header_s header_t;
 struct __packed _header_s
 {
     // Total: 32 bytes
@@ -48,38 +39,38 @@ struct __packed _header_s
 
 /**
  * @brief Allocates `size` bytes and returns a pointer to the (uninitialized)
- *        allocated memory. If size is 0, then `malloc()` returns a unique
+ *        allocated memory. If size is 0, then `kmalloc()` returns a unique
  *        pointer value that can later be successfully passed to `free()`.
  * @param size The size of the block to allocate, aligned to 16 bytes.
  * @return A pointer to the allocated memory, aligned to 16 bytes. If an error
  *         occurs, NULL is returned.
  */
-void *malloc( size_t size );
+void *kmalloc( size_t size );
 
 /**
  * @brief Frees the memory space pointed to by ptr, which must have been
- *        returned by a previous call to `malloc()` or related functions.
+ *        returned by a previous call to `kmalloc()` or related functions.
  *        Otherwise, or if ptr has already been freed, undefined behavior
  *        occurs. If ptr is NULL, no operation is performed.
  * @param ptr A pointer to the memory block to free.
  */
-void free( void *ptr );
+void kfree( void *ptr );
 
 /**
  * @brief Allocates memory for an array of `nmemb` elements of `size` bytes
  *        each and returns a pointer to the allocated memory, which has been
- *        initialized to zero. If nmemb or size is 0, then `calloc()` returns a
+ *        initialized to zero. If nmemb or size is 0, then `kcalloc()` returns a
  *        unique pointer that can later be successfully passed to `free()`. \n
  *
  *        If the multiplication of nmemb and size would result in integer
- *        overflow, then `calloc()` returns an error.
+ *        overflow, then `kcalloc()` returns an error.
  *
  * @param nmemb The number of elements in the array.
  * @param size The size of each element in the array, aligned to 16 bytes.
  * @return A pointer to the allocated memory, aligned to 16 bytes, with all
  *         bytes set to zero. If an error occurs, NULL is returned.
  */
-void *calloc( size_t nmemb, size_t size );
+void *kcalloc( size_t nmemb, size_t size );
 
 /**
  * @brief changes the size of the memory block pointed to by ptr to size bytes.
@@ -88,22 +79,22 @@ void *calloc( size_t nmemb, size_t size );
  *        the new size is larger than the old size, the added memory will not
  *        be initialized. \n
  *
- *        If ptr is NULL, then the call is equivalent to `malloc(size)`, for
+ *        If ptr is NULL, then the call is equivalent to `kmalloc(size)`, for
  *        all values of size. \n
  *
  *        If size is equal to zero, and ptr is not NULL, then the call is
  *        equivalent to `free(ptr)`. \n
  *
  *        Unless ptr is NULL, it must have been returned by an earlier call to
- *        malloc or related functions. If the area pointed to was moved, a
+ *        kmalloc or related functions. If the area pointed to was moved, a
  *        `free(ptr)` is done.
- * @param ptr A pointer to the memory block to reallocate.
+ * @param ptr A pointer to the memory block to kreallocate.
  * @param size The new size of the memory block, aligned to 16 bytes.
- * @return A pointer to the reallocated memory block, aligned to 16 bytes, or
+ * @return A pointer to the kreallocated memory block, aligned to 16 bytes, or
  *         NULL if an error occurred.
  */
-void *realloc( void *ptr, size_t size );
+void *krealloc( void *ptr, size_t size );
 
-#endif /* MALLOC_H */
+#endif /* KMALLOC_H */
 
 /*** end of file ***/
