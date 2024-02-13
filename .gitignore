@@ -4,3 +4,7 @@
 
 # Ignore logs
 *.log
+
+# Ignore pipes
+*.in
+*.out

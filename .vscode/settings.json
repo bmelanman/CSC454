@@ -21,6 +21,21 @@
     "__hash_table": "c",
     "limits": "c",
     "typeinfo": "c",
-    "cerrno": "c"
+    "cerrno": "c",
+    "deque": "c",
+    "forward_list": "c",
+    "list": "c",
+    "string": "c",
+    "unordered_map": "c",
+    "iterator": "c",
+    "string_view": "c",
+    "__bit_reference": "c",
+    "__split_buffer": "c",
+    "__tree": "c",
+    "map": "c",
+    "set": "c",
+    "bitset": "c",
+    "initializer_list": "c",
+    "queue": "c"
 }
 }
