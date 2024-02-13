@@ -123,9 +123,9 @@ void tss_init( void )
     tss.rsp2 = 0x0;
 
     // Setup the ISTs
-    tss.ist1 = (uint64_t)ist1;
-    tss.ist2 = (uint64_t)ist2;
-    tss.ist3 = (uint64_t)ist3;
+    // tss.ist1 = (uint64_t)ist1; // TODO: Implement ISTs
+    // tss.ist2 = (uint64_t)ist2;
+    // tss.ist3 = (uint64_t)ist3;
     tss.ist4 = 0x0;
     tss.ist5 = 0x0;
     tss.ist6 = 0x0;
