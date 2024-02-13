@@ -25,17 +25,30 @@
 
 /* Typedefs */
 
+typedef enum virt_addr_t {
+    VIRT_ADDR_PHYSICAL_MAP = 0,
+    VIRT_ADDR_KERNEL_HEAP,
+    VIRT_ADDR_RESERVED,
+    VIRT_ADDR_IST1,
+    VIRT_ADDR_IST2,
+    VIRT_ADDR_IST3,
+    VIRT_ADDR_IST4,
+    VIRT_ADDR_KERNEL_STACK,
+    VIRT_ADDR_USER_HEAP,
+    VIRT_ADDR_MAX
+} virt_addr_t;
+
 /* Public Functions */
 
 driver_status_t MMU_init( void *tag_ptr );
 
+// Physical Address Functions
 void *MMU_pf_alloc( void );
-
-void *MMU_pf_alloc_n( int n );
-
 void MMU_pf_free( void *pf );
 
-void MMU_pf_free_n( void *pf, int n );
+// Virtual Address Functions
+void *MMU_alloc_region( virt_addr_t region );
+void MMU_free_page( void *page );
 
 #endif /* MMU_DRIVER_H */
 
