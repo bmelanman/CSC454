@@ -51,20 +51,6 @@ typedef struct mb_mmap_tag_tag_s
     mb_mmap_entry_t entries[0];
 } mb_mmap_tag_t;
 
-typedef struct elf_shdr_tbl_s
-{
-    uint32_t name;
-    uint32_t type;
-    uint64_t flags;
-    uint64_t addr;
-    uint64_t offset;
-    uint64_t size;
-    uint32_t link;
-    uint32_t info;
-    uint64_t addralign;
-    uint64_t entsize;
-} elf_shdr_tbl_t;
-
 typedef struct mb_elf_sections_tag_s
 {
     uint32_t type;
@@ -287,31 +273,46 @@ int parse_multiboot2( unsigned long magic, unsigned long addr )
     return 0;
 }
 
-void get_multiboot2_mmap_info(
-    void *tag_addr, mb_mmap_entry_t **mmap_entreies, uint32_t *num_entries
-)
+mb_tag_t *find_multiboot2_tag( unsigned long addr, uint32_t tag_type )
 {
-    mb_tag_t *tag;
+    mb_tag_t *tag, *section_addr = NULL;
 
-    for ( tag = (mb_tag_t *)( (uint8_t *)tag_addr + 8 ); tag->type != MULTIBOOT_TAG_TYPE_END;
+    for ( tag = (mb_tag_t *)( addr ) + 1; tag->type != MULTIBOOT_TAG_TYPE_END;
           tag = (mb_tag_t *)( (uint8_t *)tag + ( ( tag->size + 7 ) & ~7 ) ) )
     {
-        if ( tag->type == MULTIBOOT_TAG_TYPE_MMAP )
+        if ( tag->type == tag_type )
         {
+            section_addr = tag;
             break;
         }
     }
 
-    if ( tag->type != MULTIBOOT_TAG_TYPE_MMAP )
+    if ( tag->type != tag_type )
     {
-        OS_ERROR( "No memory map tag found???\n" );
-        *mmap_entreies = NULL;
-        *num_entries = 0;
-        return;
+        OS_ERROR( "Tag could not be found!\n" );
     }
+
+    return section_addr;
+}
+
+void get_multiboot2_mmap_info(
+    void *tag_addr, mb_mmap_entry_t **mmap_entreies, uint32_t *num_entries
+)
+{
+    mb_tag_t *tag = find_multiboot2_tag( (unsigned long)tag_addr, MULTIBOOT_TAG_TYPE_MMAP );
 
     *mmap_entreies = ( (mb_mmap_tag_t *)tag )->entries;
     *num_entries = ( tag->size - sizeof( mb_mmap_tag_t ) ) / ( (mb_mmap_tag_t *)tag )->entry_size;
+}
+
+void get_multiboot2_elf_info(
+    void *tag_addr, elf_shdr_tbl_t **elf_sections, uint32_t *num_sections
+)
+{
+    mb_tag_t *tag = find_multiboot2_tag( (unsigned long)tag_addr, MULTIBOOT_TAG_TYPE_ELF_SECTIONS );
+
+    *elf_sections = (elf_shdr_tbl_t *)( (mb_elf_sections_tag_t *)tag )->sections;
+    *num_sections = ( (mb_elf_sections_tag_t *)tag )->num;
 }
 
 /*** End of File ***/

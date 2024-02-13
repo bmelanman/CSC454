@@ -26,6 +26,8 @@
 # define MULTIBOOT_MEMORY_NVS              ( 4U )
 # define MULTIBOOT_MEMORY_BADRAM           ( 5U )
 
+# define MULTIBOOT_ELF_SHF_ALLOC ( 0b10U )
+
 # define MEM_IS_AVAILABLE( entry ) ( ( entry ).type == MULTIBOOT_MEMORY_AVAILABLE )
 
 /* Public Types and Structs */
@@ -40,13 +42,29 @@ typedef struct mmap_entry_s
     uint32_t zero;
 } mb_mmap_entry_t;
 
+typedef struct elf_shdr_tbl_s
+{
+    uint32_t name;
+    uint32_t type;
+    uint64_t flags;
+    uint64_t addr;
+    uint64_t offset;
+    uint64_t size;
+    uint32_t link;
+    uint32_t info;
+    uint64_t addralign;
+    uint64_t entsize;
+} elf_shdr_tbl_t;
+
 /* Public Functions */
 
 int parse_multiboot2( unsigned long magic, unsigned long addr );
 
-void parse_ELF( mb_tag_t *tag );
-
 void get_multiboot2_mmap_info( void *tag, mb_mmap_entry_t **mmap_entreies, uint32_t *num_entries );
+
+void get_multiboot2_elf_info(
+    void *tag_addr, elf_shdr_tbl_t **elf_sections, uint32_t *num_sections
+);
 
 #endif /* MULTIBOOT2_H */
 
