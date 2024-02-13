@@ -24,7 +24,7 @@
 #define IO_WAIT_LEN ( 100U )
 
 // Status Register
-#define STATUS_REGISTER_ADDR ( (uintptr_t)0x64 )
+#define STATUS_REGISTER_ADDR ( (uint64_t)0x64 )
 
 // Status Register Masks (Bits 4 & 5 are unused)
 #define OUTPUT_BUFFER_STATUS_MSK( stat ) ( ( stat ) & ( 0b00000001 ) )  // Must be FULL(1) to read
@@ -41,7 +41,7 @@
 #define CONTLR_COMMAND ( 1U )
 
 // Command Register
-#define COMMAND_REGISTER_ADDR ( (uintptr_t)0x64 )
+#define COMMAND_REGISTER_ADDR ( (uint64_t)0x64 )
 
 // Command Register Commands
 #define CMD_PORT_1_ENABLE  ( 0xAEU )
@@ -72,7 +72,7 @@
 #define KBD_RESEND ( 0xFEU )
 
 // Data Port
-#define DATA_PORT_ADDR ( (uintptr_t)0x60 )
+#define DATA_PORT_ADDR ( (uint64_t)0x60 )
 
 // Configuration Bytes
 #define PORT1_INT_EN      ( 0b00000001U )
