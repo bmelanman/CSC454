@@ -52,12 +52,3 @@ reload_segments:
     mov gs, ax
     mov ss, ax
     ret
-
-section .bss
-    resb 4096
-ist1:
-    resb 4096
-ist2:
-    resb 4096
-ist3:
-    resb 4096
