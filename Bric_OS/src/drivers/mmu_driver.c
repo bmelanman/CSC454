@@ -58,6 +58,8 @@
  * |  Unused |    PML4 |    PDPT |      PD |      PT |  Offset |
  */
 
+#define MAP_INIT_SIZE ( 0x200000U )  // 2 MiB
+
 #define PAGE_MAP_OFFSET_MASK     ( 0x1FFU )  // 9 bits
 #define PAGE_DIR_PTR_OFFSET_MASK ( 0x1FFU )  // 9 bits
 #define PAGE_DIR_OFFSET_MASK     ( 0x1FFU )  // 9 bits
@@ -144,9 +146,6 @@ pf_range_entry_t *addr_range_tail = NULL;
 extern uint64_t kernel_start, kernel_end;
 void *kernel_start_addr = NULL, *kernel_end_addr = NULL;
 
-// CR3 Register
-pg_map_entry_t *cr3 = NULL;
-
 // Page Map Table (Level 4)
 static pg_dir_entry_t *pml4 = NULL;
 
@@ -170,6 +169,8 @@ static void *virt_addr[VIRT_ADDR_MAX] = {
 };
 
 /* Private Functions */
+
+extern void reload_segments( void );
 
 // Allocates a new page frame from the list of MMAP entries
 void *alloc_new_pf( void )
@@ -212,7 +213,6 @@ void alloc_table_entry( pg_dir_entry_t *parent_entry )
     WRITE_FRAME_ADDR( parent_entry, new_pd );
     parent_entry->present = 1;
     parent_entry->writable = 1;
-    parent_entry->user = 1;
 }
 
 // Get the Page Table Entry for a virtual address
@@ -280,7 +280,6 @@ void map_page( void *phys_addr, void *virt_addr )
     WRITE_FRAME_ADDR( pt_entry, phys_addr );
     pt_entry->present = 1;
     pt_entry->writable = 1;
-    pt_entry->user = 1;
     pt_entry->alloc = 0;
 
     // OS_INFO( "Mapped page at %p to %p\n", virt_addr, phys_addr );
@@ -307,17 +306,130 @@ void *virt_to_phys( void *virt_addr )
     return phys_addr;
 }
 
-void page_fault_irq( int irq, int err, void *arg )
+void decode_error_flags( uint16_t err )
 {
-    (void)irq;
-    (void)err;
-    (void)arg;
+    /*
+     * Error Flags:
+     *   Bit 0 (P) is the Present flag.
+     *   Bit 1 (R/W) is the Read/Write flag.
+     *   Bit 2 (U/S) is the User/Supervisor flag.
+     *   Bit 3 (RSVD) indicates whether a reserved bit was set in some page-structure entry
+     *   Bit 4 (I/D) is the Instruction/Data flag (1=instruction fetch, 0=data access)
+     *   Bit 5 (PK) indicates a protection-key violation
+     *   Bit 6 (SS) indicates a shadow-stack access fault
+     *   Bit 15 (SGX) indicates an SGX violaton
+     */
 
+    printk(
+        "Error Flags:    \n"
+        "    ------------\n"
+        "    Present: %d \n"
+        "    R/W:     %d \n"
+        "    User:    %d \n"
+        "    ------------\n"
+        "    RSVD:    %d \n"
+        "    I/D:     %d \n"
+        "    PK:      %d \n"
+        "    SS:      %d \n"
+        "    SGX:     %d \n"
+        "    \n",
+        ( err & 0x1 ), ( err >> 1 ) & 0x1, ( err >> 2 ) & 0x1, ( err >> 3 ) & 0x1,
+        ( err >> 4 ) & 0x1, ( err >> 5 ) & 0x1, ( err >> 6 ) & 0x1, ( err >> 15 ) & 0x1
+    );
+
+    /*
+     *  User/Supervisor   ( Bit 2 )
+     *  |  Read/Write     ( Bit 1 )
+     *  |  |  Present Bit ( Bit 0 )
+     *  |  |  |
+     *  0  0  0 - Supervisory process tried to read a non-present page entry
+     *  0  0  1 - Supervisory process tried to read a page and caused a protection fault
+     *  0  1  0 - Supervisory process tried to write to a non-present page entry
+     *  0  1  1 - Supervisory process tried to write a page and caused a protection fault
+     *  1  0  0 - User process tried to read a non-present page entry
+     *  1  0  1 - User process tried to read a page and caused a protection fault
+     *  1  1  0 - User process tried to write to a non-present page entry
+     *  1  1  1 - User process tried to write a page and caused a protection fault
+     */
+
+    // Check the User/Supervisor bit
+    if ( err & 0b100 )
+    {
+        printk( "User process " );
+    }
+    else
+    {
+        printk( "Supervisory process " );
+    }
+
+    printk( "tried to " );
+
+    // Check the Read/Write bit
+    if ( err & 0b010 )
+    {
+        printk( "write " );
+    }
+    else
+    {
+        printk( "read " );
+    }
+
+    // Check the Present bit
+    if ( err & 0b001 )
+    {
+        printk( "a page and caused a protection fault\n" );
+    }
+    else
+    {
+        printk( "to a non-present page entry\n" );
+    }
+
+    printk( "\n" );
+}
+
+void page_fault_irq( int __unused irq, int err, void *__unused arg )
+{
     // Read the CR2 Register
     void *cr2;
     asm volatile( "movq %%cr2, %0" : "=r"( cr2 ) );
 
-    OS_ERROR_HALT( "Page Fault IRQ! Virtual address: %p\n", cr2 );
+    // Print the error code
+    OS_ERROR(
+        "Page Fault IRQ!    \n"
+        "\t  CR2:        %p \n"
+        "\t  Error Code: %X \n",
+        cr2, err
+    );
+
+    // Decode the error flags
+    decode_error_flags( err );
+
+    // Get the PT entry
+    pg_dir_entry_t *pt_entry = get_pt_entry( cr2 );
+
+    // Check if the PT entry is present
+    if ( !pt_entry->present )
+    {
+        // Check if the Allocate on Demand bit is set
+        if ( pt_entry->alloc )
+        {
+            // Allocate a new page frame
+            void *phys_page = MMU_pf_alloc();
+
+            // Map the page
+            map_page( phys_page, cr2 );
+
+            OS_INFO(
+                "PF handler allocated page frame %p for virtual address %p\n", phys_page, cr2
+            );
+
+            return;
+        }
+
+        OS_ERROR_HALT(
+            "Page at %p is not present and the Allocate on Demand bit is not set!\n", cr2
+        );
+    }
 }
 
 void addr_map_init( void *tag_ptr )
@@ -451,6 +563,120 @@ void addr_map_init( void *tag_ptr )
     }
 }
 
+void walk_virt_addr( void *virt_addr )
+{
+    OS_INFO( "Walking virtual address: %p\n", virt_addr );
+
+    // Get the PML4 entry (Level 4)
+    pg_dir_entry_t *dir_table = pml4;
+    uint64_t offset = GET_PAGE_MAP_INDEX( virt_addr );
+    pg_dir_entry_t *entry = dir_table + offset;
+
+    printk(
+        "PML4 Entry:      \n"
+        "    Address: %p  \n"
+        "    Present: %d  \n"
+        "    Writable: %d \n"
+        "    User: %d     \n"
+        "    Accessed: %d \n"
+        "    Dirty: %d    \n"
+        "    Alloc: %d    \n"
+        "    Frame: %p    \n"
+        "    \n",
+        entry, entry->present, entry->writable, entry->user, entry->accessed, entry->dirty,
+        entry->alloc, READ_FRAME_ADDR( entry )
+    );
+
+    // Check if the next entry is present
+    if ( !entry->present )
+    {
+        printk( "PDPT entry in PML4 is not present!\n" );
+        return;
+    }
+
+    // Get the PDPT entry (Level 3)
+    dir_table = (pg_dir_entry_t *)READ_FRAME_ADDR( entry );
+    offset = GET_PAGE_DIR_PTR_INDEX( virt_addr );
+    entry = (pg_dir_entry_t *)( (uint8_t *)dir_table ) + offset;
+
+    printk(
+        "PDPT Entry:      \n"
+        "    Address: %p  \n"
+        "    Present: %d  \n"
+        "    Writable: %d \n"
+        "    User: %d     \n"
+        "    Accessed: %d \n"
+        "    Dirty: %d    \n"
+        "    Alloc: %d    \n"
+        "    Frame: %p    \n"
+        "    \n",
+        entry, entry->present, entry->writable, entry->user, entry->accessed, entry->dirty,
+        entry->alloc, READ_FRAME_ADDR( entry )
+    );
+
+    // Check if the next entry is present
+    if ( !entry->present )
+    {
+        printk( "PD entry is not present!\n" );
+        return;
+    }
+
+    // Get the PD entry (Level 2)
+    dir_table = (pg_dir_entry_t *)READ_FRAME_ADDR( entry );
+    offset = GET_PAGE_DIR_INDEX( virt_addr );
+    entry = (pg_dir_entry_t *)( (uint8_t *)dir_table ) + offset;
+
+    printk(
+        "PD Entry:        \n"
+        "    Address: %p  \n"
+        "    Present: %d  \n"
+        "    Writable: %d \n"
+        "    User: %d     \n"
+        "    Accessed: %d \n"
+        "    Dirty: %d    \n"
+        "    Alloc: %d    \n"
+        "    Frame: %p    \n"
+        "    \n",
+        entry, entry->present, entry->writable, entry->user, entry->accessed, entry->dirty,
+        entry->alloc, READ_FRAME_ADDR( entry )
+    );
+
+    // Check if the next entry is present
+    if ( !entry->present )
+    {
+        printk( "PT entry is not present!\n" );
+        return;
+    }
+
+    dir_table = (pg_dir_entry_t *)READ_FRAME_ADDR( entry );
+    offset = GET_PAGE_TBL_INDEX( virt_addr );
+    entry = (pg_dir_entry_t *)( (uint8_t *)dir_table ) + offset;
+
+    printk(
+        "PT Entry:        \n"
+        "    Address: %p  \n"
+        "    Present: %d  \n"
+        "    Writable: %d \n"
+        "    User: %d     \n"
+        "    Accessed: %d \n"
+        "    Dirty: %d    \n"
+        "    Alloc: %d    \n"
+        "    Frame: %p    \n"
+        "    \n",
+        entry, entry->present, entry->writable, entry->user, entry->accessed, entry->dirty,
+        entry->alloc, READ_FRAME_ADDR( entry )
+    );
+
+    // Check if the page frame is present
+    if ( !entry->present )
+    {
+        printk( "PT entry is not present!\n" );
+        return;
+    }
+
+    printk( "Physical Address: %p\n", READ_FRAME_ADDR( entry ) + GET_PHYS_PAGE_INDEX( virt_addr ) );
+}
+
 /* Public Functions */
 
 // Initialize the MMU and the address space
@@ -467,21 +693,17 @@ driver_status_t MMU_init( void *tag_ptr )
     // Clear the PML4
     memset( pml4, 0, PAGE_SIZE );
 
-    // Setup the CR3 Register
-    cr3 = MMU_pf_alloc();
-    memset( cr3, 0, PAGE_SIZE );
-    WRITE_FRAME_ADDR( cr3, pml4 );
-
-    // Map the kernel pages
+    // Map the first 2 MiB of memory
     printk( "\n" );
-    OS_INFO( "Mapping physical pages from %p to %p\n", NULL, kernel_end_addr );
-    for ( i = 0; i <= (uint64_t)kernel_end_addr; i += PAGE_SIZE )
+    void *temp = (void *)MAP_INIT_SIZE;
+    OS_INFO( "Mapping physical pages from %p to %p\n", NULL, temp );
+    for ( i = 0; i <= (uint64_t)temp; i += PAGE_SIZE )
     {
         map_page( (void *)i, (void *)i );
     }
 
     // DEBUG: Check if the kernel pages are mapped
-    for ( i = 0; i <= (uint64_t)kernel_end_addr; i += PAGE_SIZE )
+    for ( i = PAGE_SIZE; i < (uint64_t)temp; i += PAGE_SIZE )
     {
         void *temp = virt_to_phys( (void *)i );
 
@@ -496,14 +718,21 @@ driver_status_t MMU_init( void *tag_ptr )
             );
         }
     }
-    OS_INFO( "Successfully mapped %lu kernel pages\n", i / PAGE_SIZE );
+    OS_INFO( "Successfully mapped %lu kernel pages\n\n", i >> 12 );
 
-    OS_INFO( "PML4 Real Address: %p\n", pml4 );
-    OS_INFO( "PML4 CR3 Address: %p\n\n", READ_FRAME_ADDR( cr3 ) );
+    // Read the CR3 Register
+    void *cr3 = NULL;
+    asm volatile( "movq %%cr3, %0" : "=r"( cr3 ) );
+    OS_INFO( "Old CR3 Address: %p\n", cr3 );
 
     // Load the CR3 Register
-    OS_INFO( "Loading CR3 Register: %p\n", cr3 );
-    asm volatile( "movq %0, %%cr3" : : "r"( cr3 ) );
+    cr3 = (void *)( (uint64_t)pml4 >> 0 );
+    OS_INFO( "New CR3 Address: %p\n\n", cr3 );
+    OS_INFO( "Loading CR3 Register...\n" );
+    asm volatile( "mov %0, %%cr3" : : "r"( cr3 ) );
+
+    // Reload the segment registers
+    reload_segments();
 
     OS_INFO( "CR3 Register setup complete\n" );
 
