@@ -46,15 +46,8 @@ void test_page( uint8_t *page )
     printk( "\n" );
 }
 
-int kernel_main( unsigned long magic, unsigned long addr )
+void test_pf( void )
 {
-    // Run initialization
-    if ( system_initialization( magic, addr ) )
-    {
-        OS_ERROR( "System initialization failed!\n" );
-        HLT();
-    }
-
     uint i, num_pages = 10;
 
     // Test the memory manager
@@ -96,6 +89,33 @@ int kernel_main( unsigned long magic, unsigned long addr )
     }
 
     OS_INFO( "Memory manager test is complete.\n" );
+}
+
+void test_virt_pages( void )
+{
+    // Allocate a virtual page in the kernel heap
+    uint8_t *page = MMU_page_alloc( VIRT_ADDR_KERNEL_HEAP );
+
+    OS_INFO( "Virtual Page: %p\n", page );
+
+    test_page( page );
+
+    // Free the virtual page
+    MMU_page_free( page );
+}
+
+int kernel_main( unsigned long magic, unsigned long addr )
+{
+    // Run initialization
+    if ( system_initialization( magic, addr ) )
+    {
+        OS_ERROR( "System initialization failed!\n" );
+        HLT();
+    }
+
+    // Test the memory manager
+    // test_pf();
+    test_virt_pages();
 
     OS_INFO( "Done!\n" );
 

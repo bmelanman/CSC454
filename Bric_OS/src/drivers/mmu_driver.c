@@ -11,6 +11,8 @@
 
 #include "mmu_driver.h"
 
+#include "irq_handler.h"
+
 /* Private Defines and Macros */
 
 #define PAGE_SIZE ( 4096U )
@@ -51,17 +53,22 @@
 #define ALIGN_ADDR_8_BYTES( addr ) ( (void *)ALIGN( (uint64_t)( addr ), 8U ) )
 #define PAGE_ALIGN_ADDR( addr )    ( (void *)ALIGN( (uint64_t)( addr ), PAGE_SIZE ) )
 
+/* Virtual Address Structure:
+ * | 63 - 48 | 47 - 39 | 38 - 30 | 29 - 21 | 20 - 12 | 11 - 00 |
+ * |  Unused |    PML4 |    PDPT |      PD |      PT |  Offset |
+ */
+
 #define PAGE_MAP_OFFSET_MASK     ( 0x1FFU )  // 9 bits
 #define PAGE_DIR_PTR_OFFSET_MASK ( 0x1FFU )  // 9 bits
 #define PAGE_DIR_OFFSET_MASK     ( 0x1FFU )  // 9 bits
 #define PAGE_TBL_OFFSET_MASK     ( 0x1FFU )  // 9 bits
 #define PHYS_PAGE_OFFSET_MASK    ( 0xFFFU )  // 12 bits
 
-#define GET_PAGE_MAP_OFFSET( x )     ( (uint64_t)( x ) & PAGE_MAP_OFFSET_MASK )
-#define GET_PAGE_DIR_PTR_OFFSET( x ) ( (uint64_t)( x ) & PAGE_DIR_PTR_OFFSET_MASK )
-#define GET_PAGE_DIR_OFFSET( x )     ( (uint64_t)( x ) & PAGE_DIR_OFFSET_MASK )
-#define GET_PAGE_TBL_OFFSET( x )     ( (uint64_t)( x ) & PAGE_TBL_OFFSET_MASK )
-#define GET_PHYS_PAGE_OFFSET( x )    ( (uint64_t)( x ) & PHYS_PAGE_OFFSET_MASK )
+#define GET_PAGE_MAP_INDEX( x )     ( ( (uint64_t)( x ) >> 39U ) & PAGE_MAP_OFFSET_MASK )
+#define GET_PAGE_DIR_PTR_INDEX( x ) ( ( (uint64_t)( x ) >> 30U ) & PAGE_DIR_PTR_OFFSET_MASK )
+#define GET_PAGE_DIR_INDEX( x )     ( ( (uint64_t)( x ) >> 21U ) & PAGE_DIR_OFFSET_MASK )
+#define GET_PAGE_TBL_INDEX( x )     ( ( (uint64_t)( x ) >> 12U ) & PAGE_TBL_OFFSET_MASK )
+#define GET_PHYS_PAGE_INDEX( x )    ( ( (uint64_t)( x ) >> 00U ) & PHYS_PAGE_OFFSET_MASK )
 
 #define READ_FRAME_ADDR( entry )        ( (uint8_t *)( (uint64_t)( ( entry )->frame_addr ) << 12 ) )
 #define WRITE_FRAME_ADDR( entry, addr ) ( ( entry )->frame_addr = ( (uint64_t)( addr ) >> 12 ) )
@@ -105,23 +112,22 @@ typedef struct page_map_entry_s
     uint64_t write_through : 1;   // Page-Level Write-Through
     uint64_t cache_disabled : 1;  // Page-Level Cache Disable
     uint64_t reserved2 : 7;       // Reserved Bits
-    uint64_t frame_addr : 40;     // Frame Address
-    uint64_t reserved3 : 12;      // Reserved Bits
+    uint64_t frame_addr : 52;     // Frame Address
 } __packed pg_map_entry_t;
 
 // Page Table, Page Directory, Directory Pointer Table, and Page Map Entry (Levels 1 - 4)
 typedef struct page_directory_entry_s
 {
-    uint64_t present : 1;         // Present Bit
-    uint64_t writable : 1;        // Read/Write Bit
-    uint64_t user : 1;            // User/Supervisor Bit
-    uint64_t accessed : 1;        // Accessed Bit
-    uint64_t dirty : 1;           // Dirty Bit                <-- Used by Page Table Entries
-    uint64_t alloc_on_write : 1;  // Allocate on Demand Bit   <--
-    uint64_t unused : 16;         // Unused Bits
-    uint64_t frame_addr : 40;     // Frame Address ( 40 bits for Page Map Entries )
-    uint64_t no_execute : 1;      // No-Execute Bit
-} __packed pg_dir_entry_t;        // 64 bits Total
+    uint64_t present : 1;      // Present Bit ............... 1 = Child Table/Page Exists
+    uint64_t writable : 1;     // Read/Write Bit ............ 0 = Read-Only, 1 = Read/Write
+    uint64_t user : 1;         // User/Supervisor Bit ....... 0 = Supervisor, 1 = User
+    uint64_t accessed : 1;     // Accessed Bit .............. 1 = Data has been Accessed
+    uint64_t dirty : 1;        // Dirty Bit ................. 1 = Data has been Written to
+    uint64_t alloc : 1;        // Allocate on Demand Bit .... 1 = Allocate before Accessing
+    uint64_t unused : 16;      // Unused Bits ............... Currently Unused
+    uint64_t frame_addr : 40;  // Frame Address ............. Address of the Child Table/Page
+    uint64_t no_execute : 1;   // No-Execute Bit ............ 0 = Execute, 1 = No-Execute
+} __packed pg_dir_entry_t;     // 64 bits Total
 
 /* Global Variables */
 
@@ -133,6 +139,22 @@ static uint32_t num_mmap_entries = 0;
 pf_range_entry_t *addr_range_head = NULL;
 pf_range_entry_t *addr_range_curr = NULL;
 pf_range_entry_t *addr_range_tail = NULL;
+
+// Kernel start and end addresses
+extern uint64_t kernel_start, kernel_end;
+void *kernel_start_addr = NULL, *kernel_end_addr = NULL;
+
+// CR3 Register
+pg_map_entry_t *cr3 = NULL;
+
+// Page Map Table (Level 4)
+static pg_dir_entry_t *pml4 = NULL;
+
+// Free page frames
+static pf_list_entry_t *pf_free_list_head = NULL;
+
+// Local Heap for the Linked List of Valid Physical Address Ranges
+static uint8_t *local_heap_ptr = (uint8_t *)( PAGE_SIZE );
 
 // Next available virtual address in each region
 static void *virt_addr[VIRT_ADDR_MAX] = {
@@ -146,19 +168,6 @@ static void *virt_addr[VIRT_ADDR_MAX] = {
     [VIRT_ADDR_KERNEL_STACK] = (void *)KERNEL_STACK_START,
     [VIRT_ADDR_USER_HEAP] = (void *)USER_HEAP_START
 };
-
-// Kernel start and end addresses
-extern uint64_t kernel_start;
-extern uint64_t kernel_end;
-
-// Page Map Table (Level 4)
-static pg_dir_entry_t *pml4 = NULL;
-
-// Free page frames
-static pf_list_entry_t *pf_free_list_head = NULL;
-
-// Local Heap for the Linked List of Valid Physical Address Ranges
-static uint8_t *local_heap_ptr = (uint8_t *)( PAGE_SIZE );
 
 /* Private Functions */
 
@@ -185,9 +194,6 @@ void *alloc_new_pf( void )
         addr_range_curr = addr_range_curr->next_entry;
     }
 
-    // Clear the page
-    memset( phys_page, 0, PAGE_SIZE );
-
     OS_INFO( "Allocated NEW physical page at %p\n", phys_page );
 
     return phys_page;
@@ -199,6 +205,9 @@ void alloc_table_entry( pg_dir_entry_t *parent_entry )
     // Allocate a new PD
     pg_dir_entry_t *new_pd = (pg_dir_entry_t *)MMU_pf_alloc();
 
+    // Clear the new PD
+    memset( new_pd, 0, PAGE_SIZE );
+
     // Set the PDPT entry to the new PD
     WRITE_FRAME_ADDR( parent_entry, new_pd );
     parent_entry->present = 1;
@@ -209,15 +218,13 @@ void alloc_table_entry( pg_dir_entry_t *parent_entry )
 // Get the Page Table Entry for a virtual address
 pg_dir_entry_t *get_pt_entry( void *virt_addr )
 {
-    // DEBUG: Check if the virtual address is aligned, not sure if this is actually necessary lol
-    if ( virt_addr != ALIGN_ADDR_8_BYTES( virt_addr ) )
-    {
-        OS_WARN( "Virtual address %p is not aligned to 8 bytes!\n", virt_addr );
-    }
+    // DEBUG: Verify alignment
+    CHECK_PAGE_ALIGNED( virt_addr );
 
     // Get the PML4 entry (Level 4)
     pg_dir_entry_t *dir_table = pml4;
-    pg_dir_entry_t *entry = dir_table + GET_PAGE_MAP_OFFSET( virt_addr );
+    uint64_t offset = GET_PAGE_MAP_INDEX( virt_addr );
+    pg_dir_entry_t *entry = dir_table + offset;
 
     // Check if the PML4 entry is present
     if ( !entry->present )
@@ -228,7 +235,8 @@ pg_dir_entry_t *get_pt_entry( void *virt_addr )
 
     // Get the PDPT entry (Level 3)
     dir_table = (pg_dir_entry_t *)READ_FRAME_ADDR( entry );
-    entry = dir_table + GET_PAGE_DIR_PTR_OFFSET( virt_addr );
+    offset = GET_PAGE_DIR_PTR_INDEX( virt_addr );
+    entry = (pg_dir_entry_t *)( (uint8_t *)dir_table ) + offset;
 
     // Check if the PDPT entry is present
     if ( !entry->present )
@@ -239,7 +247,8 @@ pg_dir_entry_t *get_pt_entry( void *virt_addr )
 
     // Get the PD entry (Level 2)
     dir_table = (pg_dir_entry_t *)READ_FRAME_ADDR( entry );
-    entry = dir_table + GET_PAGE_DIR_OFFSET( virt_addr );
+    offset = GET_PAGE_DIR_INDEX( virt_addr );
+    entry = (pg_dir_entry_t *)( (uint8_t *)dir_table ) + offset;
 
     // Check if the PD entry is present
     if ( !entry->present )
@@ -248,8 +257,12 @@ pg_dir_entry_t *get_pt_entry( void *virt_addr )
         alloc_table_entry( entry );
     }
 
+    dir_table = (pg_dir_entry_t *)READ_FRAME_ADDR( entry );
+    offset = GET_PAGE_TBL_INDEX( virt_addr );
+    entry = (pg_dir_entry_t *)( (uint8_t *)dir_table ) + offset;
+
     // Get the PT entry (Level 1)
-    return (pg_dir_entry_t *)( READ_FRAME_ADDR( entry ) );
+    return entry;
 }
 
 // Map a virtual page to a physical page
@@ -258,7 +271,7 @@ void map_page( void *phys_addr, void *virt_addr )
     // DEBUG: Verify alignment of the physical address
     CHECK_PAGE_ALIGNED( phys_addr );
 
-    OS_INFO( "Mapping page at %p to %p\n", virt_addr, phys_addr );
+    // OS_INFO( "Mapping page at %p to %p\n", virt_addr, phys_addr );
 
     // Get the PT entry
     pg_dir_entry_t *pt_entry = get_pt_entry( virt_addr );
@@ -268,12 +281,12 @@ void map_page( void *phys_addr, void *virt_addr )
     pt_entry->present = 1;
     pt_entry->writable = 1;
     pt_entry->user = 1;
-    pt_entry->alloc_on_write = 0;
+    pt_entry->alloc = 0;
 
-    OS_INFO( "Mapped page at %p to %p\n", virt_addr, phys_addr );
+    // OS_INFO( "Mapped page at %p to %p\n", virt_addr, phys_addr );
 }
 
-// Convert a virtual address to a physical address
+// Returns the physical address associated with the given virtual address
 void *virt_to_phys( void *virt_addr )
 {
     // Get the PT entry
@@ -287,9 +300,9 @@ void *virt_to_phys( void *virt_addr )
     }
 
     // Get the physical address
-    void *phys_addr = (void *)( READ_FRAME_ADDR( pt_entry ) + GET_PHYS_PAGE_OFFSET( virt_addr ) );
+    void *phys_addr = (void *)( READ_FRAME_ADDR( pt_entry ) + GET_PHYS_PAGE_INDEX( virt_addr ) );
 
-    OS_INFO( "Converted virtual address %p to physical address %p\n", virt_addr, phys_addr );
+    // OS_INFO( "Converted virtual address %p to physical address %p\n", virt_addr, phys_addr );
 
     return phys_addr;
 }
@@ -300,17 +313,16 @@ void page_fault_irq( int irq, int err, void *arg )
     (void)err;
     (void)arg;
 
-    OS_ERROR( "Page Fault IRQ\n" );
-    OS_ERROR( "Halting!\n" );
-    HLT();
+    // Read the CR2 Register
+    void *cr2;
+    asm volatile( "movq %%cr2, %0" : "=r"( cr2 ) );
+
+    OS_ERROR_HALT( "Page Fault IRQ! Virtual address: %p\n", cr2 );
 }
 
-/* Public Functions */
-
-// Initialize the MMU and the address space
-driver_status_t MMU_init( void *tag_ptr )
+void addr_map_init( void *tag_ptr )
 {
-    uint i;
+    uint64_t i;
 
     // Check if the tag pointer is valid
     if ( tag_ptr == NULL )
@@ -328,7 +340,8 @@ driver_status_t MMU_init( void *tag_ptr )
         HLT();
     }
 
-    void *kernel_start_addr = &kernel_start, *kernel_end_addr = &kernel_end;
+    kernel_start_addr = &kernel_start;
+    kernel_end_addr = &kernel_end;
 
     // DEBUG: Check if the kernel start and end addresses are valid
     if ( kernel_start_addr >= kernel_end_addr )
@@ -421,7 +434,7 @@ driver_status_t MMU_init( void *tag_ptr )
         // DEBUG: Check if the linked list of valid addresses is valid
         if ( addr_range_curr == NULL )
         {
-            OS_ERROR_HALT( "addr_range_curr is NULL!? i = %d\n", i );
+            OS_ERROR_HALT( "addr_range_curr is NULL!? i = %ld\n", i );
         }
     }
 
@@ -436,12 +449,69 @@ driver_status_t MMU_init( void *tag_ptr )
     {
         OS_ERROR_HALT( "addr_range_head or addr_range_tail is NULL!\n" );
     }
+}
+
+/* Public Functions */
+
+// Initialize the MMU and the address space
+driver_status_t MMU_init( void *tag_ptr )
+{
+    uint64_t i;
+
+    // Initialize the address map
+    addr_map_init( tag_ptr );
 
     // Allocate the Page Map Table (Level 4)
     pml4 = MMU_pf_alloc();
 
-    // Allocate the free list
-    pf_free_list_head = MMU_pf_alloc();
+    // Clear the PML4
+    memset( pml4, 0, PAGE_SIZE );
+
+    // Setup the CR3 Register
+    cr3 = MMU_pf_alloc();
+    memset( cr3, 0, PAGE_SIZE );
+    WRITE_FRAME_ADDR( cr3, pml4 );
+
+    // Map the kernel pages
+    printk( "\n" );
+    OS_INFO( "Mapping physical pages from %p to %p\n", NULL, kernel_end_addr );
+    for ( i = 0; i <= (uint64_t)kernel_end_addr; i += PAGE_SIZE )
+    {
+        map_page( (void *)i, (void *)i );
+    }
+
+    // DEBUG: Check if the kernel pages are mapped
+    for ( i = 0; i <= (uint64_t)kernel_end_addr; i += PAGE_SIZE )
+    {
+        void *temp = virt_to_phys( (void *)i );
+
+        if ( (void *)i != temp )
+        {
+            OS_ERROR_HALT(
+                "Pointer mismatch:    \n"
+                "        Physical: %p \n"
+                "        Virtual:  %p \n"
+                "        \n",
+                (void *)i, temp
+            );
+        }
+    }
+    OS_INFO( "Successfully mapped %lu kernel pages\n", i / PAGE_SIZE );
+
+    OS_INFO( "PML4 Real Address: %p\n", pml4 );
+    OS_INFO( "PML4 CR3 Address: %p\n\n", READ_FRAME_ADDR( cr3 ) );
+
+    // Load the CR3 Register
+    OS_INFO( "Loading CR3 Register: %p\n", cr3 );
+    asm volatile( "movq %0, %%cr3" : : "r"( cr3 ) );
+
+    OS_INFO( "CR3 Register setup complete\n" );
+
+    // Setup the page fault IRQ
+    if ( IRQ_set_exception_handler( IRQ14_PAGE_FAULT, page_fault_irq, NULL ) )
+    {
+        OS_ERROR_HALT( "Failed to set the page fault IRQ handler\n" );
+    }
 
     return SUCCESS;
 }
@@ -478,8 +548,8 @@ void MMU_pf_free( void *pf )
     OS_INFO( "Page deallocated at %p\n", pf_free_list_head );
 }
 
-// Allocate a virtual page
-void *MMU_alloc_region( virt_addr_t region )
+// Allocate a virtual page in a specific region
+void *MMU_page_alloc( virt_addr_t region )
 {
     // Get the next available virtual address
     void *virt_page = virt_addr[region];
@@ -488,7 +558,7 @@ void *MMU_alloc_region( virt_addr_t region )
     pg_dir_entry_t *pt_entry = get_pt_entry( virt_page );
 
     // Set the allocate on demand bit
-    pt_entry->alloc_on_write = 1;
+    pt_entry->alloc = 1;
     pt_entry->present = 0;
 
     // Increment the virtual address
@@ -500,7 +570,7 @@ void *MMU_alloc_region( virt_addr_t region )
 }
 
 // Free a virtual page
-void MMU_free_page( void *page )
+void MMU_page_free( void *page )
 {
     //
     (void)page;
