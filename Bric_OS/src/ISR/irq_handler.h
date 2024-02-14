@@ -87,6 +87,8 @@ driver_status_t IRQ_init( void );
 
 int IRQ_set_handler( uint16_t irq, irq_handler_t handler, void* arg );
 
+int IRQ_set_exception_handler( uint16_t irq, irq_handler_t handler, void* arg );
+
 void IRQ_enable( void );
 
 void IRQ_disable( void );

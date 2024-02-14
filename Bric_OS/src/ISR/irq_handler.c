@@ -16,7 +16,7 @@
 #include "gdt.h"
 #include "idt.h"
 #include "pic.h"
-#include "timer.h"
+#include "timer_driver.h"
 #include "vga_driver.h"
 
 /* Private Defines and Macros */
@@ -198,9 +198,25 @@ driver_status_t IRQ_init( void )
 int IRQ_set_handler( uint16_t irq, irq_handler_t handler, void* arg )
 {
     // Validate the IRQ
-    if ( !IS_VALID_IRQ( irq ) )
+    if ( !( IS_VALID_IRQ( irq ) ) )
     {
         OS_ERROR( "Invalid IRQ: %d\n", irq );
+        return -1;
+    }
+
+    // Set the handler and arg in the table
+    irq_handler_table[irq].handler = handler;
+    irq_handler_table[irq].arg = arg;
+
+    return 0;
+}
+
+int IRQ_set_exception_handler( uint16_t irq, irq_handler_t handler, void* arg )
+{
+    // Validate the IRQ
+    if ( !( IS_EXCEPTION( irq ) ) )
+    {
+        OS_ERROR( "Invalid exception: %d\n", irq );
         return -1;
     }
 
