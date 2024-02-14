@@ -94,6 +94,8 @@ static tss_t tss;
 
 /* Private Functions */
 
+extern void reload_segments( void );
+
 void encode_gdt_entry( gdt_t *target, gdt_entry_t source )
 {
     // Lower 16 bits of the limit

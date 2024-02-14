@@ -27,8 +27,6 @@
 
 /* Enternal Functions and Variables */
 
-extern void reload_segments( void );
-
 extern void* ist1;
 extern void* ist2;
 extern void* ist3;
