@@ -59,7 +59,11 @@ isr_stub_%+%1:
     pop rsi
 
     call exception_handler
-    iretq
+
+hlt_loop:
+    ; We should never get here
+    hlt
+    jmp hlt_loop
 %endmacro
 
 %macro isr_no_err_stub 1
