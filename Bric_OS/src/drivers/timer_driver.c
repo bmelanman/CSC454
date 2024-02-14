@@ -9,7 +9,7 @@
  * (See http://opensource.org/licenses/MIT for more details.)
  */
 
-#include "timer.h"
+#include "timer_driver.h"
 
 /* Private Includes */
 
