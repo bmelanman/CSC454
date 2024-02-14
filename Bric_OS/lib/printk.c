@@ -50,11 +50,11 @@ void format_str( char *str, char *s )
     strncat( str, s, strlen( s ) );
 }
 
-void format_llu_base_n( char *str, ullong n, uint8_t base, uint8_t text_case )
+void format_llu_base_n( char *str, ullong n, uint8_t base, uint8_t text_case, uint16_t num_len )
 {
-    size_t len = strlen( str );
+    size_t str_len = strlen( str );
 
-    if ( len == MAX_STR_LEN - 1 )
+    if ( str_len == MAX_STR_LEN - 1 )
     {
         OS_ERROR( "String buffer overflow!\n" );
         return;
@@ -63,7 +63,15 @@ void format_llu_base_n( char *str, ullong n, uint8_t base, uint8_t text_case )
     // Recursively format the number, starting with the most significant digit
     if ( n / base )
     {
-        format_llu_base_n( str, n / base, base, text_case );
+        format_llu_base_n( str, n / base, base, text_case, ( num_len > 0 ) ? num_len - 1 : 0 );
+    }
+    else if ( num_len > 0 )
+    {
+        // We're at the most significant digit, so pad with 0's
+        for ( uint16_t i = 0; i < ( num_len - 1 ); ++i )
+        {
+            format_char( str, '0' );
+        }
     }
 
     uint8_t digit_d = (uint8_t)( n % base );
@@ -78,24 +86,29 @@ void format_llu_base_n( char *str, ullong n, uint8_t base, uint8_t text_case )
     }
 }
 
-void format_ll_base_n( char *str, llong n, uint8_t base, uint8_t text_case )
+void format_ll_base_n( char *str, llong n, uint8_t base, uint8_t text_case, uint16_t num_len )
 {
+    // If the number is negative, print a '-' and make the number positive
     if ( n < 0 )
     {
         format_char( str, '-' );
-        format_llu_base_n( str + 1, (ullong)( -n ), base, text_case );
+        format_llu_base_n( str + 1, (ullong)( -n ), base, text_case, num_len );
     }
     else
     {
-        format_llu_base_n( str, (ullong)n, base, text_case );
+        format_llu_base_n( str, (ullong)n, base, text_case, num_len );
     }
 }
 
-#define format_ll( str, n )  format_ll_base_n( str, n, BASE_10, LOWERCASE )
-#define format_llu( str, n ) format_llu_base_n( str, n, BASE_10, LOWERCASE )
+#define format_ll( str, n )  format_ll_base_n( str, n, BASE_10, LOWERCASE, 0 )
+#define format_llu( str, n ) format_llu_base_n( str, n, BASE_10, LOWERCASE, 0 )
 
-#define format_hex( str, n, text_case ) format_llu_base_n( str, n, BASE_16, text_case )
-#define format_oct( str, n )            format_llu_base_n( str, n, BASE_8, LOWERCASE )
+#define format_hex( str, n, text_case ) format_llu_base_n( str, n, BASE_16, text_case, 0 )
+#define format_oct( str, n )            format_llu_base_n( str, n, BASE_8, LOWERCASE, 0 )
+
+#define format_ptr( str, n, text_case ) \
+    format_str( str, "0x" );            \
+    format_llu_base_n( str, n, BASE_16, text_case, 8 )
 
 #define parse_specifier( str, sp, args, type )                                           \
     do                                                                                   \
@@ -188,8 +201,7 @@ __attribute__( ( format( printf, 1, 2 ) ) ) int printk( const char *fmt, ... )
                         break;
 
                     case 'p':  // Pointer
-                        format_str( output_str, "0x" );
-                        format_hex( output_str, (uint64_t)va_arg( args, void * ), LOWERCASE );
+                        format_ptr( output_str, (uint64_t)va_arg( args, void * ), LOWERCASE );
                         break;
 
                     case 'l':  // Long
