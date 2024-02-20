@@ -47,8 +47,13 @@ void *MMU_pf_alloc( void );
 void MMU_pf_free( void *pf );
 
 // Virtual Address Functions
-void *MMU_page_alloc( virt_addr_t region );
-void MMU_page_free( void *page );
+void *MMU_alloc_page( virt_addr_t region );
+void *MMU_alloc_pages( uint64_t num_pages, virt_addr_t region );
+void MMU_free_page( void *page );
+
+// Heap Functions
+void *kbrk( uint64_t increment );
+void *sbrk( uint64_t increment );
 
 #endif /* MMU_DRIVER_H */
 

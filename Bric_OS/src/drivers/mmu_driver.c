@@ -411,50 +411,6 @@ void flush_pg_tbl( void *addr )
     }
 }
 
-void page_fault_irq( int __unused irq, int err, void __unused *arg )
-{
-    // Get the CR2 register
-    void *cr2;
-    asm volatile( "movq %%cr2, %0" : "=r"( cr2 ) );
-
-    // Print the error code
-    OS_ERROR(
-        "Page Fault IRQ!\n"
-        "CR2:        %p \n"
-        "Error Code: %X \n"
-        "\n",
-        cr2, err
-    );
-
-    // Get the PT entry
-    pg_dir_entry_t *pt_entry = get_pt_entry( cr2 );
-
-    // Check for allocate on demand
-    if ( !pt_entry->present && pt_entry->alloc )
-    {
-        // Allocate a new page frame
-        void *phys_page = MMU_pf_alloc();
-
-        // Map the page
-        map_page( phys_page, cr2 );
-
-        // Clear the alloc flag
-        pt_entry->alloc = 0;
-
-        // Flush the page table
-        flush_pg_tbl( cr2 );
-
-        OS_INFO( "PF handler allocated page frame %p for virtual address %p\n\n", phys_page, cr2 );
-    }
-    else
-    {
-        // Decode the error flags
-        decode_error_flags( err );
-
-        OS_ERROR_HALT( "Unable to recover!\n" );
-    }
-}
-
 void addr_map_init( void *tag_ptr )
 {
     uint64_t i;
@@ -700,6 +656,64 @@ void walk_virt_addr( void *virt_addr )
     printk( "Physical Address: %p\n", READ_FRAME_ADDR( entry ) + GET_PHYS_PAGE_INDEX( virt_addr ) );
 }
 
+void page_fault_irq( int __unused irq, int err, void __unused *arg )
+{
+    // Get the CR2 register
+    void *cr2;
+    asm volatile( "movq %%cr2, %0" : "=r"( cr2 ) );
+
+    // Print the error code
+    OS_ERROR(
+        "Page Fault IRQ!\n"
+        "  CR2:  %p     \n"
+        "  Code: %X     \n"
+        "\n",
+        cr2, err
+    );
+
+    // Check if the address needs to be aligned
+    if ( (uint64_t)cr2 % PAGE_SIZE != 0 )
+    {
+        OS_WARN( "Address %p is not page aligned!\n", cr2 );
+
+        // Align the address
+        cr2 = (void *)( (uint64_t)cr2 & ~( (uint64_t)PAGE_SIZE - 1 ) );
+
+        OS_WARN( "Address aligned to %p\n\n", cr2 );
+
+        // DEBUG: Walk the virtual address
+        // walk_virt_addr( cr2 );
+    }
+
+    // Get the PT entry
+    pg_dir_entry_t *pt_entry = get_pt_entry( cr2 );
+
+    // Check for allocate on demand
+    if ( !pt_entry->present && pt_entry->alloc )
+    {
+        // Allocate a new page frame
+        void *phys_page = MMU_pf_alloc();
+
+        // Map the page
+        map_page( phys_page, cr2 );
+
+        // Clear the alloc flag
+        pt_entry->alloc = 0;
+
+        // Flush the page table
+        flush_pg_tbl( cr2 );
+
+        OS_INFO( "PF handler allocated page frame %p for virtual address %p\n\n", phys_page, cr2 );
+    }
+    else
+    {
+        // Decode the error flags
+        decode_error_flags( err );
+
+        OS_ERROR_HALT( "Unable to recover!\n" );
+    }
+}
+
 /* Public Functions */
 
 // Initialize the MMU and the address space
@@ -771,7 +785,7 @@ void *MMU_pf_alloc( void )
     pf_list_entry_t *pf = pf_free_list_head;
     pf_free_list_head = pf_free_list_head->next;
 
-    OS_INFO( "Allocated physical page %p\n", pf );
+    // OS_INFO( "Allocated physical page %p\n", pf );
 
     return pf;
 }
@@ -786,11 +800,11 @@ void MMU_pf_free( void *pf )
     ( (pf_list_entry_t *)pf )->next = pf_free_list_head;
     pf_free_list_head = pf;
 
-    OS_INFO( "Page deallocated at %p\n", pf_free_list_head );
+    // OS_INFO( "Page deallocated at %p\n", pf_free_list_head );
 }
 
 // Allocate a virtual page in a specific region
-void *MMU_page_alloc( virt_addr_t region )
+void *MMU_alloc_page( virt_addr_t region )
 {
     // Get the next available virtual address
     void *virt_page = virt_addr[region];
@@ -805,13 +819,29 @@ void *MMU_page_alloc( virt_addr_t region )
     // Increment the virtual address
     virt_addr[region] += PAGE_SIZE;
 
-    OS_INFO( "Allocated virtual page at %p\n", virt_page );
+    // OS_INFO( "Allocated virtual page at %p\n", virt_page );
+
+    return virt_page;
+}
+
+// Allocate multiple virtual pages in a specific region
+void *MMU_alloc_pages( uint64_t num_pages, virt_addr_t region )
+{
+    uint64_t i;
+    void *virt_page = virt_addr[region];
+
+    for ( i = 0; i < num_pages; ++i )
+    {
+        MMU_alloc_page( region );
+    }
+
+    // OS_INFO( "Allocated %lu virtual pages starting at %p\n", num_pages, virt_page );
 
     return virt_page;
 }
 
 // Free a virtual page
-void MMU_page_free( void *page )
+void MMU_free_page( void *page )
 {
     // DEBUG: Check if the page is aligned
     CHECK_PAGE_ALIGNED( page );
@@ -826,9 +856,49 @@ void MMU_page_free( void *page )
     MMU_pf_free( pf );
 
     // Clear the PT entry
-    memset( pt_entry, 0, sizeof( pg_dir_entry_t ) );
+    // memset( pt_entry, 0, sizeof( pg_dir_entry_t ) );
 
-    OS_INFO( "Freed virtual page at %p\n", page );
+    // OS_INFO( "Freed virtual page at %p\n", page );
+}
+
+/**
+ * @brief Increments the kernels's heap by `increment` bytes. Calling with an increment of 0 can
+ *        be used to find the current location of the program break.
+ */
+void *kbrk( uint64_t increment )
+{
+    void *old_brk = virt_addr[VIRT_ADDR_KERNEL_HEAP];
+
+    // Check if the increment is valid
+    if ( increment == 0 )
+    {
+        return old_brk;
+    }
+
+    // Allocate the new pages
+    MMU_alloc_pages( increment / PAGE_SIZE, VIRT_ADDR_KERNEL_HEAP );
+
+    return old_brk;
+}
+
+/**
+ * @brief Increments the program's data space by increment bytes. Calling with an
+ *        increment of 0 can be used to find the current location of the program break.
+ */
+void *sbrk( uint64_t increment )
+{
+    void *old_brk = virt_addr[VIRT_ADDR_USER_HEAP];
+
+    // Check if the increment is valid
+    if ( increment == 0 )
+    {
+        return old_brk;
+    }
+
+    // Allocate the new pages
+    MMU_alloc_pages( increment / PAGE_SIZE, VIRT_ADDR_USER_HEAP );
+
+    return old_brk;
 }
 
 /*** End of File ***/
