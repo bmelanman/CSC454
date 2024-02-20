@@ -120,16 +120,22 @@ typedef struct page_map_entry_s
 // Page Table, Page Directory, Directory Pointer Table, and Page Map Entry (Levels 1 - 4)
 typedef struct page_directory_entry_s
 {
-    uint64_t present : 1;      // Present Bit ............... 1 = Child Table/Page Exists
-    uint64_t writable : 1;     // Read/Write Bit ............ 0 = Read-Only, 1 = Read/Write
-    uint64_t user : 1;         // User/Supervisor Bit ....... 0 = Supervisor, 1 = User
-    uint64_t accessed : 1;     // Accessed Bit .............. 1 = Data has been Accessed
-    uint64_t dirty : 1;        // Dirty Bit ................. 1 = Data has been Written to
-    uint64_t alloc : 1;        // Allocate on Demand Bit .... 1 = Allocate before Accessing
-    uint64_t unused : 16;      // Unused Bits ............... Currently Unused
-    uint64_t frame_addr : 40;  // Frame Address ............. Address of the Child Table/Page
-    uint64_t no_execute : 1;   // No-Execute Bit ............ 0 = Execute, 1 = No-Execute
-} __packed pg_dir_entry_t;     // 64 bits Total
+    uint64_t present : 1;         // Present Bit ............... 1 = Child Table/Page Exists
+    uint64_t writable : 1;        // Read/Write Bit ............ 0 = Read-Only,  1 = Read/Write
+    uint64_t user : 1;            // User/Supervisor Bit ....... 0 = Supervisor, 1 = User
+    uint64_t write_through : 1;   // Page Write-Through ........ 0 = Write-Back, 1 = Write-Through
+    uint64_t cache_disabled : 1;  // Page Cache Disable ........ 0 = Enabled,    1 = Disabled
+    uint64_t accessed : 1;        // Accessed Bit .............. 1 = Data has been accessed
+    uint64_t bit_6 : 1;           // Unused Bit
+    uint64_t bit_7 : 1;           // Unused Bit
+    uint64_t bit_8 : 1;           // Unused Bit
+    uint64_t dirty : 1;           // Dirty Bit ................. 1 = Data has been written to
+    uint64_t alloc : 1;           // Allocate on Demand Bit .... 1 = Allocate before accessing
+    uint64_t bit_B : 1;           // Unused Bit
+    uint64_t frame_addr : 40;     // Frame Address ............. Address of the Child Table/Page
+    uint64_t unused : 11;         // Unused Bits
+    uint64_t no_execute : 1;      // No-Execute Bit ............ 0 = Execute, 1 = No-Execute
+} __packed pg_dir_entry_t;        // 64 bits Total
 
 /* Global Variables */
 
@@ -170,8 +176,6 @@ static void *virt_addr[VIRT_ADDR_MAX] = {
 
 /* Private Functions */
 
-extern void reload_segments( void );
-
 // Allocates a new page frame from the list of MMAP entries
 void *alloc_new_pf( void )
 {
@@ -195,7 +199,7 @@ void *alloc_new_pf( void )
         addr_range_curr = addr_range_curr->next_entry;
     }
 
-    OS_INFO( "Allocated NEW physical page at %p\n", phys_page );
+    OS_INFO( "Allocated NEW physical page %p\n", phys_page );
 
     return phys_page;
 }
@@ -203,16 +207,15 @@ void *alloc_new_pf( void )
 // Allocates and setups up a page frame for a new entry
 void alloc_table_entry( pg_dir_entry_t *parent_entry )
 {
-    // Allocate a new PD
+    // Allocate a new entry
     pg_dir_entry_t *new_pd = (pg_dir_entry_t *)MMU_pf_alloc();
 
-    // Clear the new PD
+    // Clear the new entry
     memset( new_pd, 0, PAGE_SIZE );
 
-    // Set the PDPT entry to the new PD
+    // Set the new entry in the parent table
     WRITE_FRAME_ADDR( parent_entry, new_pd );
     parent_entry->present = 1;
-    parent_entry->writable = 1;
 }
 
 // Get the Page Table Entry for a virtual address
@@ -276,6 +279,15 @@ void map_page( void *phys_addr, void *virt_addr )
     // Get the PT entry
     pg_dir_entry_t *pt_entry = get_pt_entry( virt_addr );
 
+    // Check if the PT entry is present
+    if ( pt_entry->present )
+    {
+        OS_ERROR_HALT( "Page at %p is already present!\n", virt_addr );
+    }
+
+    // Clear the PT entry
+    memset( pt_entry, 0, sizeof( pg_dir_entry_t ) );
+
     // Setup the PT entry
     WRITE_FRAME_ADDR( pt_entry, phys_addr );
     pt_entry->present = 1;
@@ -321,18 +333,18 @@ void decode_error_flags( uint16_t err )
      */
 
     printk(
-        "Error Flags:    \n"
-        "    ------------\n"
-        "    Present: %d \n"
-        "    R/W:     %d \n"
-        "    User:    %d \n"
-        "    ------------\n"
-        "    RSVD:    %d \n"
-        "    I/D:     %d \n"
-        "    PK:      %d \n"
-        "    SS:      %d \n"
-        "    SGX:     %d \n"
-        "    \n",
+        "Error Flags:\n"
+        "------------\n"
+        "Present: %d \n"
+        "R/W:     %d \n"
+        "User:    %d \n"
+        "------------\n"
+        "RSVD:    %d \n"
+        "I/D:     %d \n"
+        "PK:      %d \n"
+        "SS:      %d \n"
+        "SGX:     %d \n"
+        "\n",
         ( err & 0x1 ), ( err >> 1 ) & 0x1, ( err >> 2 ) & 0x1, ( err >> 3 ) & 0x1,
         ( err >> 4 ) & 0x1, ( err >> 5 ) & 0x1, ( err >> 6 ) & 0x1, ( err >> 15 ) & 0x1
     );
@@ -383,52 +395,63 @@ void decode_error_flags( uint16_t err )
     {
         printk( "to a non-present page entry\n" );
     }
-
-    printk( "\n" );
 }
 
-void page_fault_irq( int __unused irq, int err, void *__unused arg )
+void flush_pg_tbl( void *addr )
 {
-    // Read the CR2 Register
+    if ( addr == NULL )
+    {
+        OS_INFO( "Reloading CR3 Register...\n" );
+        asm volatile( "movq %0, %%cr3" : : "r"( pml4 ) );
+    }
+    else
+    {
+        OS_INFO( "Flushing Page Table Entry...\n" );
+        asm volatile( "invlpg (%0)" : : "r"( addr ) );
+    }
+}
+
+void page_fault_irq( int __unused irq, int err, void __unused *arg )
+{
+    // Get the CR2 register
     void *cr2;
     asm volatile( "movq %%cr2, %0" : "=r"( cr2 ) );
 
     // Print the error code
     OS_ERROR(
-        "Page Fault IRQ!    \n"
-        "\t  CR2:        %p \n"
-        "\t  Error Code: %X \n",
+        "Page Fault IRQ!\n"
+        "CR2:        %p \n"
+        "Error Code: %X \n"
+        "\n",
         cr2, err
     );
-
-    // Decode the error flags
-    decode_error_flags( err );
 
     // Get the PT entry
     pg_dir_entry_t *pt_entry = get_pt_entry( cr2 );
 
-    // Check if the PT entry is present
-    if ( !pt_entry->present )
+    // Check for allocate on demand
+    if ( !pt_entry->present && pt_entry->alloc )
     {
-        // Check if the Allocate on Demand bit is set
-        if ( pt_entry->alloc )
-        {
-            // Allocate a new page frame
-            void *phys_page = MMU_pf_alloc();
+        // Allocate a new page frame
+        void *phys_page = MMU_pf_alloc();
 
-            // Map the page
-            map_page( phys_page, cr2 );
+        // Map the page
+        map_page( phys_page, cr2 );
 
-            OS_INFO(
-                "PF handler allocated page frame %p for virtual address %p\n", phys_page, cr2
-            );
+        // Clear the alloc flag
+        pt_entry->alloc = 0;
 
-            return;
-        }
+        // Flush the page table
+        flush_pg_tbl( cr2 );
 
-        OS_ERROR_HALT(
-            "Page at %p is not present and the Allocate on Demand bit is not set!\n", cr2
-        );
+        OS_INFO( "PF handler allocated page frame %p for virtual address %p\n\n", phys_page, cr2 );
+    }
+    else
+    {
+        // Decode the error flags
+        decode_error_flags( err );
+
+        OS_ERROR_HALT( "Unable to recover!\n" );
     }
 }
 
@@ -694,9 +717,9 @@ driver_status_t MMU_init( void *tag_ptr )
     memset( pml4, 0, PAGE_SIZE );
 
     // Map the first 2 MiB of memory
-    printk( "\n" );
     void *temp = (void *)MAP_INIT_SIZE;
-    OS_INFO( "Mapping physical pages from %p to %p\n", NULL, temp );
+    // printk( "\n" );
+    // OS_INFO( "Mapping physical pages from %p to %p\n", NULL, temp );
     for ( i = 0; i <= (uint64_t)temp; i += PAGE_SIZE )
     {
         map_page( (void *)i, (void *)i );
@@ -718,23 +741,12 @@ driver_status_t MMU_init( void *tag_ptr )
             );
         }
     }
-    OS_INFO( "Successfully mapped %lu kernel pages\n\n", i >> 12 );
-
-    // Read the CR3 Register
-    void *cr3 = NULL;
-    asm volatile( "movq %%cr3, %0" : "=r"( cr3 ) );
-    OS_INFO( "Old CR3 Address: %p\n", cr3 );
+    // OS_INFO( "Successfully mapped %lu kernel pages\n\n", i >> 12 );
 
     // Load the CR3 Register
-    cr3 = (void *)( (uint64_t)pml4 >> 0 );
-    OS_INFO( "New CR3 Address: %p\n\n", cr3 );
-    OS_INFO( "Loading CR3 Register...\n" );
-    asm volatile( "mov %0, %%cr3" : : "r"( cr3 ) );
+    asm volatile( "movq %0, %%cr3" : : "r"( pml4 ) );
 
-    // Reload the segment registers
-    reload_segments();
-
-    OS_INFO( "CR3 Register setup complete\n" );
+    // OS_INFO( "CR3 Register setup complete\n" );
 
     // Setup the page fault IRQ
     if ( IRQ_set_exception_handler( IRQ14_PAGE_FAULT, page_fault_irq, NULL ) )
@@ -759,7 +771,7 @@ void *MMU_pf_alloc( void )
     pf_list_entry_t *pf = pf_free_list_head;
     pf_free_list_head = pf_free_list_head->next;
 
-    OS_INFO( "Page frame allocated at %p\n", pf );
+    OS_INFO( "Allocated physical page %p\n", pf );
 
     return pf;
 }
@@ -801,8 +813,22 @@ void *MMU_page_alloc( virt_addr_t region )
 // Free a virtual page
 void MMU_page_free( void *page )
 {
-    //
-    (void)page;
+    // DEBUG: Check if the page is aligned
+    CHECK_PAGE_ALIGNED( page );
+
+    // Get the PT entry
+    pg_dir_entry_t *pt_entry = get_pt_entry( page );
+
+    // Get the page frame
+    void *pf = READ_FRAME_ADDR( pt_entry );
+
+    // Free the page frame
+    MMU_pf_free( pf );
+
+    // Clear the PT entry
+    memset( pt_entry, 0, sizeof( pg_dir_entry_t ) );
+
+    OS_INFO( "Freed virtual page at %p\n", page );
 }
 
 /*** End of File ***/

@@ -27,7 +27,8 @@ int system_initialization( unsigned long magic, unsigned long addr );
 
 void test_page( uint8_t *page )
 {
-    uint j, test_pattern = ( (uint64_t)page + 0xA5 ) & 0xFF;
+    uint test_pattern = ( ( (uint64_t)page >> 12 ) + 0xA5 ) & 0xFF;
+    // uint8_t *debug_ptr = (uint8_t *)0x1;
 
     // Write a test pattern to the page
     OS_INFO( "Writing test pattern to page...\n" );
@@ -35,7 +36,7 @@ void test_page( uint8_t *page )
     memset( page, (uint8_t)test_pattern, PAGE_SIZE );
 
     // Verify the test pattern
-    for ( j = 0; j < PAGE_SIZE; j++ )
+    for ( uint j = 0; j < PAGE_SIZE; j++ )
     {
         if ( *( page + j ) != test_pattern )
         {
@@ -43,7 +44,7 @@ void test_page( uint8_t *page )
         }
     }
 
-    printk( "\n" );
+    OS_INFO( "Memory test passed!\n\n" );
 }
 
 void test_pf( void )
@@ -98,6 +99,7 @@ void test_virt_pages( void )
 
     OS_INFO( "Virtual Page: %p\n", page );
 
+    // Test the virtual page
     test_page( page );
 
     // Free the virtual page
