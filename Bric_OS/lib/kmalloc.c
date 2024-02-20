@@ -5,22 +5,15 @@
 
 #include "kmalloc.h"
 
+#include "errno.h"
 #include "mmu_driver.h"
 
-header_t *kernel_heap_head = NULL;
+#define DEBUG_MSG_ENABLE 0
+
+static header_t *kernel_heap_head = NULL;
 
 /**
- * @brief Increments the program's data space by increment bytes. Calling `sbrk()` with an
- *        increment of 0 can be used to find the current location of the program break.
- */
-void *sbrk( uint64_t increment )
-{
-    (void)increment;
-    return NULL;
-}
-
-/**
- * @brief Attemps to return memory allocated with `sbrk()` to the OS.
+ * @brief Attemps to return memory allocated with `kbrk()` to the OS.
  */
 void kmalloc_cleanup( void )
 {
@@ -55,9 +48,9 @@ void kmalloc_cleanup( void )
     }
 
     // Check if we can give memory back to the OS
-    if ( (uintptr_t)kernel_heap_head->ptr + kernel_heap_head->size == (uintptr_t)sbrk( 0 ) )
+    if ( (uintptr_t)kernel_heap_head->ptr + kernel_heap_head->size == (uintptr_t)kbrk( 0 ) )
     {
-        ret = (header_t *)sbrk( (int64_t)kernel_heap_head->size * -1 );
+        ret = (header_t *)kbrk( (int64_t)kernel_heap_head->size * -1 );
 
         if ( ret != (void *)( -1 ) )
         {
@@ -155,16 +148,16 @@ void split_block( header_t *block, size_t size )
 header_t *extend_mem( size_t min_blk_size, header_t *prev, header_t *next )
 {
     // Align the top of the heap to 16 bytes if necessary
-    if ( (uintptr_t)sbrk( 0 ) % ALIGN_SIZE != 0 )
+    if ( (uintptr_t)kbrk( 0 ) % ALIGN_SIZE != 0 )
     {
-        sbrk( ALIGN_SIZE - ( (uintptr_t)sbrk( 0 ) % ALIGN_SIZE ) );
+        kbrk( ALIGN_SIZE - ( (uintptr_t)kbrk( 0 ) % ALIGN_SIZE ) );
     }
 
     // Calculate the minimum amount of memory needed in multiples of BIN_SIZE
     size_t total_size = ROUND_UP( min_blk_size, BIN_SIZE );
 
     // Extend the heap
-    header_t *b = (header_t *)sbrk( total_size + HEADER_SIZE );
+    header_t *b = (header_t *)kbrk( total_size + HEADER_SIZE );
 
     // Error checking
     if ( (void *)( b ) == (void *)( -1 ) )
@@ -277,7 +270,7 @@ void *kmalloc( size_t size )
     // Check if the size is too big
     if ( size > UINT32_MAX || total_size > UINT32_MAX )
     {
-        // errno = ENOMEM;
+        errno = ENOMEM;
         return NULL;
     }
 
@@ -287,11 +280,14 @@ void *kmalloc( size_t size )
     // Error checking
     if ( IS_VALID( b ) == false )
     {
-        // errno = ENOMEM;
+        errno = ENOMEM;
         return NULL;
     }
 
-    OS_INFO( "kmalloc(%lu) => (ptr=%p, size=%u)\n", size, b->ptr, b->size );
+    if ( DEBUG_MSG_ENABLE )
+    {
+        OS_INFO( "kmalloc(%lu) => (ptr=%p, size=%u)\n", size, b->ptr, b->size );
+    }
 
     return b->ptr;
 }
@@ -304,7 +300,7 @@ void *kcalloc( size_t nmemb, size_t size )
     // Check if the size is too big
     if ( nmemb > UINT32_MAX || size > UINT32_MAX || total_size > UINT32_MAX )
     {
-        // errno = ENOMEM;
+        errno = ENOMEM;
         return NULL;
     }
 
@@ -317,9 +313,12 @@ void *kcalloc( size_t nmemb, size_t size )
 
     memset( ptr, 0, GET_HEADER( ptr )->size );
 
-    OS_INFO(
-        "kcalloc(%lu, %lu) => (ptr=%p, size=%u)\n", nmemb, size, ptr, GET_HEADER( ptr )->size
-    );
+    if ( DEBUG_MSG_ENABLE )
+    {
+        OS_INFO(
+            "kcalloc(%lu, %lu) => (ptr=%p, size=%u)\n", nmemb, size, ptr, GET_HEADER( ptr )->size
+        );
+    }
 
     return ptr;
 }
@@ -345,7 +344,7 @@ void *krealloc( void *ptr, size_t size )
     // Check if the size is too big
     if ( size > UINT32_MAX || total_size > UINT32_MAX )
     {
-        // errno = ENOMEM;
+        errno = ENOMEM;
         return NULL;
     }
 
@@ -395,9 +394,13 @@ void *krealloc( void *ptr, size_t size )
     // Split the new block if necessary
     split_block( GET_HEADER( new_ptr ), size );
 
-    OS_INFO(  // NOLINT
-        "krealloc(%p, %lu) => (ptr=%p, size=%u)\n", ptr, size, new_ptr, GET_HEADER( new_ptr )->size
-    );
+    if ( DEBUG_MSG_ENABLE )
+    {
+        OS_INFO(
+            "krealloc(%p, %lu) => (ptr=%p, size=%u)\n", ptr, size, new_ptr,
+            GET_HEADER( new_ptr )->size
+        );
+    }
 
     return new_ptr;
 }
@@ -411,10 +414,10 @@ void kfree( void *ptr )
     }
 
     // Simple check to make sure the pointer is within the know address space
-    if ( ptr < (void *)kernel_heap_head || (void *)( (uintptr_t)sbrk( 0 ) - MIN_BLK_SIZE ) < ptr )
+    if ( ptr < (void *)kernel_heap_head || (void *)( (uintptr_t)kbrk( 0 ) - MIN_BLK_SIZE ) < ptr )
     {
         OS_WARN( "kfree(%p): Invalid pointer!\n", ptr );
-        // errno = EFAULT;
+        errno = EFAULT;
         return;
     }
 
@@ -435,7 +438,7 @@ void kfree( void *ptr )
     if ( IS_NULL( b ) )
     {
         OS_ERROR( "kfree(%p): Invalid pointer!\n", ptr );
-        // errno = EFAULT;
+        errno = EFAULT;
         return;
     }
 
@@ -448,7 +451,10 @@ void kfree( void *ptr )
     // Try to merge the current block with the previous block
     merge_blocks( b->prev, b );
 
-    OS_INFO( "kfree(%p)\n", ptr );
+    if ( DEBUG_MSG_ENABLE )
+    {
+        OS_INFO( "kfree(%p)\n", ptr );
+    }
 }
 
 /*** end of file ***/
