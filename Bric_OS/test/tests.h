@@ -14,7 +14,15 @@
 
 /* Public Functions */
 
+// tests.c
 void test_printk( void );
+
+// kmalloc_tests.c
+int test_kmalloc( void );
+int test_kcalloc( void );
+int test_krealloc( void );
+int test_kfree( void );
+int test_all( void );
 
 #endif /* TESTS_H */
 

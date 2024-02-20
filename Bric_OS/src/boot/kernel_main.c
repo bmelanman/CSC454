@@ -17,6 +17,7 @@
 #include "ps2_keyboard_driver.h"
 #include "serial_io_driver.h"
 #include "splash.h"
+#include "tests.h"
 #include "vga_driver.h"
 
 /* Testing Area */
@@ -95,7 +96,7 @@ void test_pf( void )
 void test_virt_pages( void )
 {
     // Allocate a virtual page in the kernel heap
-    uint8_t *page = MMU_page_alloc( VIRT_ADDR_KERNEL_HEAP );
+    uint8_t *page = MMU_alloc_page( VIRT_ADDR_KERNEL_HEAP );
 
     OS_INFO( "Virtual Page: %p\n", page );
 
@@ -103,7 +104,7 @@ void test_virt_pages( void )
     test_page( page );
 
     // Free the virtual page
-    MMU_page_free( page );
+    MMU_free_page( page );
 }
 
 int kernel_main( unsigned long magic, unsigned long addr )
@@ -117,7 +118,10 @@ int kernel_main( unsigned long magic, unsigned long addr )
 
     // Test the memory manager
     // test_pf();
-    test_virt_pages();
+    // test_virt_pages();
+
+    // Test the kernel heap
+    test_all();
 
     OS_INFO( "Done!\n" );
 
