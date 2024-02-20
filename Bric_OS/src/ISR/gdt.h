@@ -30,6 +30,7 @@
 extern void* ist1;
 extern void* ist2;
 extern void* ist3;
+extern void* ist4;
 
 /* Global Variables */
 

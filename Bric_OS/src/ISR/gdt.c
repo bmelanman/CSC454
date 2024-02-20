@@ -77,7 +77,7 @@ typedef struct
     uint64_t reserved2;
     uint16_t reserved3;
     uint16_t iomap_base;
-} tss_t;
+} __packed tss_t;
 
 /* Global Variables */
 
@@ -94,7 +94,7 @@ static tss_t tss;
 
 /* Private Functions */
 
-extern void reload_segments( void );
+extern void reload_segments( uint16_t code_offset, uint16_t data_offset );
 
 void encode_gdt_entry( gdt_t *target, gdt_entry_t source )
 {
@@ -125,10 +125,10 @@ void tss_init( void )
     tss.rsp2 = 0x0;
 
     // Setup the ISTs
-    // tss.ist1 = (uint64_t)ist1; // TODO: Implement ISTs
-    // tss.ist2 = (uint64_t)ist2;
-    // tss.ist3 = (uint64_t)ist3;
-    tss.ist4 = 0x0;
+    tss.ist1 = (uint64_t)&ist1;
+    tss.ist2 = (uint64_t)&ist2;
+    tss.ist3 = (uint64_t)&ist3;
+    tss.ist4 = (uint64_t)&ist4;
     tss.ist5 = 0x0;
     tss.ist6 = 0x0;
     tss.ist7 = 0x0;
@@ -197,7 +197,7 @@ void gdt_init( void )
     asm volatile( "lgdt %0" : : "m"( gdt_ptr ) );
 
     // Reload the segment registers
-    reload_segments();
+    reload_segments( GDT_OFFSET_KMODE_CODE_SEG, GDT_OFFSET_KMODE_DATA_SEG );
 
     // Load the TSS descriptor
     asm volatile( "ltr %0" : : "r"( GDT_OFFSET_TSS ) );
