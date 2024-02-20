@@ -20,9 +20,9 @@
 #define GDT_OFFSET_KMODE_CODE_SEG ( 0x08 )
 #define GDT_OFFSET_KMODE_DATA_SEG ( 0x10 )
 
-#define GP_FAULT_IST ( 0x01 )
-#define PF_FAULT_IST ( 0x02 )
-#define DF_FAULT_IST ( 0x03 )
+#define GP_IST ( 0x01 )
+#define PF_IST ( 0x02 )
+#define DF_IST ( 0x03 )
 
 /* Typedefs and Structs */
 
@@ -79,9 +79,9 @@ void idt_init( void )
     }
 
     // Set the ist for #GP, #DF, and #PF
-    idt_set_ist( IRQ8_DOUBLE_FAULT, GP_FAULT_IST );
-    idt_set_ist( IRQ13_GEN_PROT_FAULT, DF_FAULT_IST );
-    idt_set_ist( IRQ14_PAGE_FAULT, PF_FAULT_IST );
+    idt_set_ist( IRQ8_DOUBLE_FAULT, GP_IST );
+    idt_set_ist( IRQ13_GEN_PROT_FAULT, DF_IST );
+    idt_set_ist( IRQ14_PAGE_FAULT, PF_IST );
 
     // Setup the idt pointer
     idtr_t idt_ptr = {

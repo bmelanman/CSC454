@@ -45,6 +45,7 @@
 # define OS_ERROR_HALT( ... )                                                     \
         do                                                                        \
         {                                                                         \
+            printk( "\n" );                                                       \
             OS_ERROR( __VA_ARGS__ );                                              \
             OS_ERROR( "This error has occurred at %s:%d\n", __FILE__, __LINE__ ); \
             OS_ERROR( "The system will now halt.\n" );                            \
