@@ -1,14 +1,9 @@
 global long_mode_start
-global reload_segments
 
 extern kernel_main
 
-global ist1
-global ist2
-global ist3
-
-%define GDT_KMODE_CODE_OFFSET 0x08
-%define GDT_KMODE_DATA_OFFSET 0x10
+; void reload_segments( uint16_t code_offset, uint16_t data_offset )
+global reload_segments
 
 section .text
 bits 64
@@ -37,15 +32,19 @@ end:
     hlt
     jmp end
 
+; Reload CS register containing code selector
+; Arg 1 (di):  Code selector offset
+; Arg 2 (si):  Data selector offset
 reload_segments:
-    ; Reload CS register containing code selector
-    push GDT_KMODE_CODE_OFFSET
-    lea rax, [rel .reload_CS]
-    push rax
+    ; Push the code selector offset onto the stack (push 8 bytes even though it's only 2)
+    push rdi
+    lea rdi, [rel .reload_CS]
+    push rdi
     retfq
+; Reload data segment registers
 .reload_CS:
-    ; Reload data segment registers
-    mov ax, GDT_KMODE_DATA_OFFSET
+    ; Load the data selector offset into the data segment registers
+    mov ax, si
     mov ds, ax
     mov es, ax
     mov fs, ax
