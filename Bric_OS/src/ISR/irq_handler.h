@@ -79,8 +79,6 @@ typedef void ( *irq_handler_t )( int, int, void* );
 
 /* Public Functions */
 
-void exception_handler( int irq, int error, void* arg );
-
 void interrupt_handler( int irq, int error );
 
 driver_status_t IRQ_init( void );

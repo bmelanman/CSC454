@@ -80,87 +80,110 @@ void print_exception( int irq )
             printk( "Coprocessor segment overrun exception\n" );
             break;
         case IRQ10_INVALID_TSS:
-            printk( "Page fault exception\n" );
+            printk( "Invalid TSS exception\n" );
             break;
         case IRQ11_SEGMENT_NOT_PRESENT:
-            printk( "General protection exception\n" );
+            printk( "Segment not present exception\n" );
             break;
         case IRQ12_STACK_SEG_FAULT:
-            printk( "Coprocessor fault exception\n" );
+            printk( "Stack segment exception\n" );
             break;
         case IRQ13_GEN_PROT_FAULT:
-            printk( "Alignment check exception\n" );
+            printk( "General protection exception\n" );
             break;
         case IRQ14_PAGE_FAULT:
-            printk( "Machine check exception\n" );
-            break;
-        case IRQ15_RESERVED:
-            printk( "SIMD floating point exception\n" );
+            printk( "Page fault exception\n" );
             break;
         case IRQ16_FPU_EXCEPTION:
-            printk( "Virtualization exception\n" );
+            printk( "x87 floating-point exception\n" );
             break;
         case IRQ17_ALIGNMENT_CHECK:
+            printk( "Alignment check exception\n" );
+            break;
+        case IRQ18_MACHINE_CHECK:
+            printk( "Machine check exception\n" );
+            break;
+        case IRQ19_SIMD_FP_EXCEPTION:
+            printk( "SIMD floating point exception\n" );
+            break;
+        case IRQ20_VIRT_EXCEPTION:
+            printk( "Virtualization exception\n" );
+            break;
+        case IRQ21_CTRL_PROT_EXCEPTION:
             printk( "Control protection exception\n" );
             break;
         case IRQ30_SECURITY:
             printk( "Security exception\n" );
             break;
         default:
-            printk( "We should absolutely never be here!!!\n" );
+            printk( "We should absolutely never be here!?\n" );
             break;
     }
 }
 
-__noreturn void exception_handler( int irq, int __unused error, void __unused* arg )
+__noreturn void exception_handler( int irq, int error )
 {
     // Print the exception
     print_exception( irq );
 
+    if ( error != 0 )
+    {
+        printk( "Selector Error Code: 0x%X\n", error );
+        printk( "External: %d\n", ( error & 0x1 ) );  // Bit 1
+        printk( "Table: " );                          // Bits 2-3
+        switch ( ( error >> 1 ) & 0x3 )
+        {
+            case 0:
+                printk( "GDT\n" );
+                break;
+            case 1:
+            case 3:
+                printk( "IDT\n" );
+                break;
+            case 2:
+                printk( "LDT\n" );
+                break;
+            default:
+                printk( "Unknown??\n" );
+                break;
+        }
+        printk( "Index: 0x%X\n", ( error >> 3 ) & 0x1FFF );  // Bits 4-15
+    }
+
     // Halt
     HLT();
-
-    // Should never get here
-    while ( 1 )
-        ;
 }
 
 void interrupt_handler( int irq, int error )
 {
-    // Validate the IRQ
-    if ( IS_VALID_IRQ( (uint16_t)irq ) )
+    printk( "\n" );
+    OS_INFO(
+        "Interrupt Occurred!    \n"
+        "IRQ:   0x%X            \n"
+        "Error: 0x%X            \n"
+        "\n",
+        irq, error
+    );
+
+    // Check for a valid handler
+    if ( irq_handler_table[irq].handler != NULL )
     {
-        if ( irq_handler_table[irq].handler != NULL )
-        {
-            // Call the IRQ handler
-            irq_handler_table[irq].handler( irq, error, irq_handler_table[irq].arg );
-        }
-        else
-        {
-            // Unhandled interrupt error
-            OS_ERROR( "Unhandled interrupt!!! IRQ: %d\n", irq );
-        }
+        // Call the IRQ handler
+        irq_handler_table[irq].handler( irq, error, irq_handler_table[irq].arg );
     }
+    // Exception without a handler
+    else if ( IS_EXCEPTION( irq ) )
+    {
+        exception_handler( irq, error );
+    }
+    // Unhandled IRQ
     else
     {
-        // Exception occurred
-        // exception_handler( irq );
-
-        // DEBUG: Print the exception
-        print_exception( irq );
+        OS_ERROR( "Unhandled interrupt!!! IRQ: %d\n", irq );
     }
 
-    IRQ_end_of_interrupt( irq );
-}
-
-void default_handler( int __unused irq, int error, void* arg )
-{
-    printk(
-        "IRQ %d called the default handler!\n"
-        "  Error: %d\n"
-        "  Arg: %p\n",
-        irq, error, arg
-    );
+    // Send EOI if neccessary
+    if ( IS_PIC_IRQ( irq ) ) IRQ_end_of_interrupt( irq );
 }
 
 /* Public Functions */
