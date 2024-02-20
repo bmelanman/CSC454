@@ -39,13 +39,16 @@ static IRQ_status_t IRQ_status_curr = DISABLED;
 
 /* Private Functions */
 
-void print_exception( int irq )
+void print_irq( int irq )
 {
-    OS_ERROR(
-        "Exception Occurred!\n"
-        "IRQ: %d - ",
-        irq
-    );
+    if ( IS_EXCEPTION( irq ) )
+    {
+        printk( "  Exception 0x%X: ", irq );
+    }
+    else
+    {
+        printk( "  IRQ 0x%X: ", irq );
+    }
 
     switch ( irq )
     {
@@ -124,7 +127,7 @@ void print_exception( int irq )
 __noreturn void exception_handler( int irq, int error )
 {
     // Print the exception
-    print_exception( irq );
+    print_irq( irq );
 
     if ( error != 0 )
     {
@@ -147,6 +150,7 @@ __noreturn void exception_handler( int irq, int error )
                 printk( "Unknown??\n" );
                 break;
         }
+
         printk( "Index: 0x%X\n", ( error >> 3 ) & 0x1FFF );  // Bits 4-15
     }
 
@@ -179,7 +183,8 @@ void interrupt_handler( int irq, int error )
     // Unhandled IRQ
     else
     {
-        OS_ERROR( "Unhandled interrupt!!! IRQ: %d\n", irq );
+        OS_ERROR( "Unhandled interrupt: \n" );
+        print_irq( irq );
     }
 
     // Send EOI if neccessary
