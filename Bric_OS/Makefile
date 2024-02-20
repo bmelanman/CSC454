@@ -54,7 +54,7 @@ ASM_FLAGS	:= -f elf64 -g
 SRC_INCS	:= $(shell find $(SRC_DIR) -type d -printf "-I%p " | sed 's/.$$//')
 INCLUDES 	:= -I$(LIB_DIR) -I$(TST_DIR) $(SRC_INCS)
 LD_FLAGS 	:= -nostdlib $(INCLUDES)
-CC_FLAGS 	:= -Wall -Wextra -g -ffreestanding $(LD_FLAGS)
+CC_FLAGS 	:= $(LD_FLAGS) -Wall -Wextra -g -ffreestanding -mno-red-zone
 
 # QEMU flags
 QEMU_FLAGS	:= -s -d int,in_asm -D $(SYSTEM_LOG) -no-reboot $(QEMU_USER_FLAGS)
