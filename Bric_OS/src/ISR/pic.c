@@ -223,7 +223,7 @@ void PIC_send_EOI( unsigned int irq )
     // Ensure the IRQ is within the valid range
     if ( irq < PIC1_MIN_IRQ || irq > PIC2_MAX_IRQ )
     {
-        OS_ERROR( "Cannot send EOI for IRQ %d", irq );
+        OS_ERROR( "Cannot send EOI for IRQ %d\n", irq );
         return;
     }
 

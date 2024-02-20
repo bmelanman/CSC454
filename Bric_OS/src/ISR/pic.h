@@ -58,7 +58,8 @@
 
 /* Macros */
 
-# define IS_PIC_IRQ( irq ) ( ( ( irq ) >= PIC1_MIN_IRQ ) && ( ( irq ) <= PIC2_MAX_IRQ ) )
+# define IS_PIC_IRQ( irq ) \
+        ( ( (unsigned)( irq ) >= PIC1_MIN_IRQ ) && ( (unsigned)( irq ) <= PIC2_MAX_IRQ ) )
 
 /* Typedefs */
 
