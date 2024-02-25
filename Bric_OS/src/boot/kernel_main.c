@@ -13,6 +13,7 @@
 
 #include "common.h"
 #include "irq_handler.h"
+#include "kproc.h"
 #include "multiboot2.h"
 #include "ps2_keyboard_driver.h"
 #include "serial_io_driver.h"
@@ -93,18 +94,59 @@ void test_pf( void )
     OS_INFO( "Memory manager test is complete.\n" );
 }
 
+void test_alloc_all( void )
+{
+    while ( MMU_pf_alloc() != NULL )
+        ;
+}
+
 void test_virt_pages( void )
 {
-    // Allocate a virtual page in the kernel heap
-    uint8_t *page = MMU_alloc_page( VIRT_ADDR_KERNEL_HEAP );
+    uint i, num_pages = 0x100;
 
-    OS_INFO( "Virtual Page: %p\n", page );
+    // Test the memory manager
+    OS_INFO( "Testing virtual memory...\n" );
 
-    // Test the virtual page
-    test_page( page );
+    OS_INFO( "Allocating %d virtual addresses...\n", num_pages );
+    void *page_frames[num_pages];
 
-    // Free the virtual page
-    MMU_free_page( page );
+    for ( i = 0; i < num_pages; i++ )
+    {
+        page_frames[i] = MMU_alloc_page( MMU_VIRT_ADDR_USER_HEAP );
+        OS_INFO( "Page %d: %p\n", i, page_frames[i] );
+        test_page( page_frames[i] );
+    }
+
+    for ( i = 0; i < num_pages; i++ )
+    {
+        OS_INFO( "Page %d: %p\n", i, page_frames[i] );
+        test_page( page_frames[i] );
+    }
+
+    // Free the pages
+    OS_INFO( "Freeing %d pages...\n", num_pages >> 1 );
+
+    for ( i = 0; i < num_pages >> 1; ++i )
+    {
+        MMU_pf_free( page_frames[i] );
+    }
+
+    // Allocate a page after deallocating some
+    page_frames[--i] = MMU_pf_alloc();
+
+    OS_INFO( "Page %d: %p\n", i, page_frames[i] );
+
+    test_page( page_frames[i] );
+
+    // Free the remaining pages
+    OS_INFO( "Freeing %d pages...\n", num_pages >> 1 );
+
+    for ( ; i < num_pages; ++i )
+    {
+        MMU_pf_free( page_frames[i] );
+    }
+
+    OS_INFO( "Virtual memory test is complete!\n" );
 }
 
 int kernel_main( unsigned long magic, unsigned long addr )
@@ -112,16 +154,22 @@ int kernel_main( unsigned long magic, unsigned long addr )
     // Run initialization
     if ( system_initialization( magic, addr ) )
     {
-        OS_ERROR( "System initialization failed!\n" );
-        HLT();
+        OS_ERROR_HALT( "System initialization failed!\n" );
     }
+
+    // parse_multiboot2( magic, addr );
 
     // Test the memory manager
     // test_pf();
     // test_virt_pages();
 
     // Test the kernel heap
-    test_all();
+    // test_kmalloc_all();
+
+    OS_INFO( "Testing PROC_run()...\n" );
+
+    // Run PROC_run() just once for debugging
+    PROC_run();
 
     OS_INFO( "Done!\n" );
 

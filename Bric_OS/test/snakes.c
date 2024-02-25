@@ -31,30 +31,10 @@
 
 #include "snakes.h"
 
-// #include "proc.h"
 #include "common.h"
 #include "kmalloc.h"
+#include "kproc.h"
 #include "vga_driver.h"
-
-// ----------------------- Fake process library for now lol -----------------------
-struct Process
-{
-    int pid;
-};
-
-struct Process *curr_proc;
-
-typedef void ( *kproc_t )( void * );
-void kexit( void ) {}
-void yield( void ) {}
-struct Process *PROC_create_kthread( kproc_t entry_point, void *arg )
-{
-    (void)entry_point;
-    (void)arg;
-
-    return NULL;
-}
-// --------------------------------------------------------------------------------
 
 #define SN_LENGTH     10
 #define SN_BODY_CHAR  '*'
@@ -484,7 +464,7 @@ snake snakeFromLWpid( int lw_pid )
 
     for ( s = allsnakes; s; s = s->others )
     {
-        if ( s->pid == curr_proc->pid )
+        if ( s->pid == PROC_get_active_kthread()->pid )
         {
             break;
         }
@@ -497,10 +477,10 @@ void setup_snakes( int hungry )
 {
     int i, cnt;
     static snake s[MAXSNAKES];
-    struct Process *snake;
+    kthread snake;
 
     // Don't use this seed for anything meaningful
-    srand( curr_proc->pid );
+    srand( PROC_get_active_kthread()->pid );
     rows = VGA_NUM_ROWS;
     cols = VGA_NUM_COLS;
 
