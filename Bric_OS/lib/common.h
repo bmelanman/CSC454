@@ -17,18 +17,19 @@
 # include <stdarg.h>
 # include <stdbool.h>
 # include <stddef.h>
-# include <stdint.h>
+// # include <stdint.h>
 # include <string.h>
 
 # include "printk.h"
+# include "types.h"
 
 /* Defines */
 
-# define __unused        __attribute__( ( unused ) )
-# define __packed        __attribute__( ( packed ) )
-# define __noreturn      __attribute__( ( noreturn ) )
-# define __weak          __attribute__( ( weak ) )
-# define __alligned( x ) __attribute__( ( aligned( x ) ) )
+# define __unused       __attribute__( ( unused ) )
+# define __packed       __attribute__( ( packed ) )
+# define __noreturn     __attribute__( ( noreturn ) )
+# define __weak         __attribute__( ( weak ) )
+# define __aligned( x ) __attribute__( ( aligned( x ) ) )
 
 # define NO_CHAR ( -1 )
 
@@ -58,12 +59,6 @@
 
 // Align x to the next multiple of n
 # define ALIGN( x, n ) ( ( ( (x)-1 ) | ( (n)-1 ) ) + 1 )
-
-/* Typedefs */
-
-typedef enum { SUCCESS = 0, FAILURE = 1 } driver_status_t;
-
-typedef unsigned int uint;
 
 /* Public Functions */
 
