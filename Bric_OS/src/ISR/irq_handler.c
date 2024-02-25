@@ -109,7 +109,7 @@ void print_irq( int irq )
         case IRQ19_SIMD_FP_EXCEPTION:
             printk( "SIMD floating point exception\n" );
             break;
-        case IRQ20_VIRT_EXCEPTION:
+        case IRQ20_MMU_VIRT_EXCEPTION:
             printk( "Virtualization exception\n" );
             break;
         case IRQ21_CTRL_PROT_EXCEPTION:
@@ -126,7 +126,6 @@ void print_irq( int irq )
 
 __noreturn void exception_handler( int irq, int error )
 {
-    // Print the exception
     print_irq( irq );
 
     if ( error != 0 )
@@ -154,20 +153,22 @@ __noreturn void exception_handler( int irq, int error )
         printk( "Index: 0x%X\n", ( error >> 3 ) & 0x1FFF );  // Bits 4-15
     }
 
+    printk( "  Halting... \n\n" );
+
     // Halt
     HLT();
 }
 
 void interrupt_handler( int irq, int error )
 {
-    printk( "\n" );
-    OS_INFO(
-        "Interrupt Occurred!    \n"
-        "IRQ:   0x%X            \n"
-        "Error: 0x%X            \n"
-        "\n",
-        irq, error
-    );
+    // printk( "\n" );
+    // OS_INFO(
+    //     "Interrupt Occurred!    \n"
+    //     "IRQ:   0x%X            \n"
+    //     "Error: 0x%X            \n"
+    //     "\n",
+    //     irq, error
+    //);
 
     // Check for a valid handler
     if ( irq_handler_table[irq].handler != NULL )
@@ -178,6 +179,7 @@ void interrupt_handler( int irq, int error )
     // Exception without a handler
     else if ( IS_EXCEPTION( irq ) )
     {
+        OS_ERROR( "Exception Occured: \n" );
         exception_handler( irq, error );
     }
     // Unhandled IRQ
@@ -185,6 +187,8 @@ void interrupt_handler( int irq, int error )
     {
         OS_ERROR( "Unhandled interrupt: \n" );
         print_irq( irq );
+
+        return;
     }
 
     // Send EOI if neccessary

@@ -43,7 +43,7 @@ typedef void ( *irq_handler_t )( int, int, void* );
 # define IRQ17_ALIGNMENT_CHECK     ( 0x11U )  // 17 - Alignment check
 # define IRQ18_MACHINE_CHECK       ( 0x12U )  // 18 - Machine check
 # define IRQ19_SIMD_FP_EXCEPTION   ( 0x13U )  // 19 - SIMD floating-point exception
-# define IRQ20_VIRT_EXCEPTION      ( 0x14U )  // 20 - Virtualization exception
+# define IRQ20_MMU_VIRT_EXCEPTION  ( 0x14U )  // 20 - Virtualization exception
 # define IRQ21_CTRL_PROT_EXCEPTION ( 0x15U )  // 21 - Control protection exception
 /* Interrupts 22-27 are reserved */
 # define IRQ28_HV_INJECT_EXCEPTION ( 0x1CU )  // 28 - Hypervisor injection exception
@@ -68,11 +68,16 @@ typedef void ( *irq_handler_t )( int, int, void* );
 # define IRQ_end_of_interrupt( irq ) PIC_send_EOI( irq )
 
 // Check if an IRQ is an exception
-# define IS_EXCEPTION( irq )                                                            \
-        ( irq == IRQ8_DOUBLE_FAULT ) || ( irq == IRQ10_INVALID_TSS ) ||                 \
-            ( irq == IRQ11_SEGMENT_NOT_PRESENT ) || ( irq == IRQ12_STACK_SEG_FAULT ) || \
-            ( irq == IRQ13_GEN_PROT_FAULT ) || ( irq == IRQ14_PAGE_FAULT ) ||           \
-            ( irq == IRQ17_ALIGNMENT_CHECK ) || ( irq == IRQ30_SECURITY )
+# define IS_EXCEPTION( irq )                               \
+        ( irq == IRQ6_INVALID_OPCODE ) ||           /*  */ \
+            ( irq == IRQ8_DOUBLE_FAULT ) ||         /*  */ \
+            ( irq == IRQ10_INVALID_TSS ) ||         /*  */ \
+            ( irq == IRQ11_SEGMENT_NOT_PRESENT ) || /*  */ \
+            ( irq == IRQ12_STACK_SEG_FAULT ) ||     /*  */ \
+            ( irq == IRQ13_GEN_PROT_FAULT ) ||      /*  */ \
+            ( irq == IRQ14_PAGE_FAULT ) ||          /*  */ \
+            ( irq == IRQ17_ALIGNMENT_CHECK ) ||     /*  */ \
+            ( irq == IRQ30_SECURITY )
 
 // Check if an IRQ is valid
 # define IS_VALID_IRQ( irq ) ( IS_PIC_IRQ( irq ) && !( IS_EXCEPTION( irq ) ) )
