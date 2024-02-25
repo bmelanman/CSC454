@@ -22,7 +22,7 @@ int test_kmalloc( void );
 int test_kcalloc( void );
 int test_krealloc( void );
 int test_kfree( void );
-int test_all( void );
+int test_kmalloc_all( void );
 
 #endif /* TESTS_H */
 
