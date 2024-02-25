@@ -47,7 +47,9 @@
 #define IST4_START         ( 0x0EFFFFFFFFFFU )
 #define KERNEL_STACK_END   ( 0x0F0000000000U )  // Kernel Stack ( 1 TiB )
 #define KERNEL_STACK_START ( 0x0FFFFFFFFFFFU )
-#define USER_HEAP_START    ( 0x100000000000U )  // User Heap ( 240 TiB )
+#define USER_STACK_END     ( 0x100000000000U )  // User Stack ( 16 TiB )
+#define USER_STACK_START   ( 0x1FFFFFFFFFFFU )
+#define USER_HEAP_START    ( 0x200000000000U )  // User Heap ( 240 TiB )
 #define USER_HEAP_END      ( 0xFFFFFFFFFFFFU )
 
 #define ALIGN_ADDR_8_BYTES( addr ) ( (void *)ALIGN( (uint64_t)( addr ), 8U ) )
@@ -162,16 +164,18 @@ static pf_list_entry_t *pf_free_list_head = NULL;
 static uint8_t *local_heap_ptr = (uint8_t *)( PAGE_SIZE );
 
 // Next available virtual address in each region
-static void *virt_addr[VIRT_ADDR_MAX] = {
-    [VIRT_ADDR_PHYSICAL_MAP] = (void *)( PHYSICAL_MAP_START + PAGE_SIZE ),  // Skip the first page
-    [VIRT_ADDR_KERNEL_HEAP] = (void *)KERNEL_HEAP_START,
-    [VIRT_ADDR_RESERVED] = (void *)RESERVED_START,
-    [VIRT_ADDR_IST1] = (void *)IST1_START,
-    [VIRT_ADDR_IST2] = (void *)IST2_START,
-    [VIRT_ADDR_IST3] = (void *)IST3_START,
-    [VIRT_ADDR_IST4] = (void *)IST4_START,
-    [VIRT_ADDR_KERNEL_STACK] = (void *)KERNEL_STACK_START,
-    [VIRT_ADDR_USER_HEAP] = (void *)USER_HEAP_START
+static void *virt_addr[MMU_VIRT_ADDR_MAX] = {
+    [MMU_VIRT_ADDR_PHYSICAL_MAP] =
+        (void *)( PHYSICAL_MAP_START + PAGE_SIZE ),  // Skip the first page
+    [MMU_VIRT_ADDR_KERNEL_HEAP] = (void *)KERNEL_HEAP_START,
+    [MMU_VIRT_ADDR_RESERVED] = (void *)RESERVED_START,
+    [MMU_VIRT_ADDR_IST1] = (void *)IST1_START,
+    [MMU_VIRT_ADDR_IST2] = (void *)IST2_START,
+    [MMU_VIRT_ADDR_IST3] = (void *)IST3_START,
+    [MMU_VIRT_ADDR_IST4] = (void *)IST4_START,
+    [MMU_VIRT_ADDR_KERNEL_STACK] = (void *)KERNEL_STACK_START,
+    [MMU_VIRT_ADDR_USER_STACK] = (void *)USER_STACK_START,
+    [MMU_VIRT_ADDR_USER_HEAP] = (void *)USER_HEAP_START
 };
 
 /* Private Functions */
@@ -196,6 +200,11 @@ void *alloc_new_pf( void )
     // Check if we need to go to the next range
     if ( (uint64_t)addr_range_curr->curr_frame >= (uint64_t)addr_range_curr->end )
     {
+        if ( addr_range_curr->next_entry == NULL )
+        {
+            OS_ERROR_HALT( "All memory has been allocated!\n" );
+        }
+
         addr_range_curr = addr_range_curr->next_entry;
     }
 
@@ -411,137 +420,6 @@ void flush_pg_tbl( void *addr )
     }
 }
 
-void addr_map_init( void *tag_ptr )
-{
-    uint64_t i;
-
-    // Check if the tag pointer is valid
-    if ( tag_ptr == NULL )
-    {
-        OS_ERROR_HALT( "Invalid multiboot2 tag pointer\n" );
-    }
-
-    // Get the MMAP entries from the multiboot2 tag
-    get_multiboot2_mmap_info( tag_ptr, &mmap_entries, &num_mmap_entries );
-
-    // Check if there are any MMAP entries
-    if ( num_mmap_entries == 0 )
-    {
-        OS_ERROR( "No memory map entries found???\n" );
-        HLT();
-    }
-
-    kernel_start_addr = &kernel_start;
-    kernel_end_addr = &kernel_end;
-
-    // DEBUG: Check if the kernel start and end addresses are valid
-    if ( kernel_start_addr >= kernel_end_addr )
-    {
-        OS_ERROR_HALT(
-            "Kernel start address (%p) is greater than or equal to the kernel end address (%p)!\n",
-            kernel_start_addr, kernel_end_addr
-        );
-    }
-    // DEBUG: Kernel start address should be 0x100000
-    if ( (uint64_t)kernel_start_addr != 0x100000 )
-    {
-        OS_ERROR_HALT( "Kernel start address (%p) is not 0x100000\n", &kernel_start_addr );
-    }
-    // DEBUG: Throw an error if the mmap entries don't start at 0x0
-    if ( mmap_entries[0].addr != 0x0 )
-    {
-        OS_ERROR_HALT( "First MMAP entries start at %p, not 0x0!\n", (void *)mmap_entries[0].addr );
-    }
-
-    // Setup the local heap
-    memset( local_heap_ptr, 0, PAGE_SIZE );
-
-    addr_range_head = (pf_range_entry_t *)local_heap_ptr;
-    addr_range_curr = addr_range_head;
-
-    // Adjust the first MMAP entry to start at page 2
-    mmap_entries[0].addr = ( PAGE_SIZE << 1 );
-
-    void *mmap_start, *mmap_end;
-
-    // Start moving the MMAP entries to the linked list of valid addresses
-    for ( i = 0; i < num_mmap_entries; ++i )
-    {
-        // Check if the MMAP entry is available
-        if ( mmap_entries[i].type != MULTIBOOT_MEMORY_AVAILABLE )
-        {
-            continue;
-        }
-
-        // Check the kernel heap pointer first
-        if ( local_heap_ptr == NULL || local_heap_ptr > (uint8_t *)( PAGE_SIZE << 1 ) )
-        {
-            OS_ERROR_HALT( "Heap pointer is NULL!? :(\n" );
-        }
-
-        mmap_start = (void *)mmap_entries[i].addr;
-        mmap_end = (void *)( mmap_entries[i].addr + mmap_entries[i].len );
-
-        // Add a new entry to the linked list
-        addr_range_curr->next_entry = (pf_range_entry_t *)local_heap_ptr;
-        local_heap_ptr += sizeof( pf_range_entry_t );
-
-        // Move the current pointer to the next entry
-        addr_range_curr = addr_range_curr->next_entry;
-
-        // Does the kernel reside in the MMAP entry?
-        if ( mmap_start <= kernel_start_addr && kernel_end_addr <= mmap_end )
-        {
-            // If the kernel starts at the beginning of the MMAP entry, then we need can skip
-            // the entry that would have come before the kernel
-            if ( kernel_start_addr != mmap_start )
-            {
-                // Setup the first entry before the kernel
-                addr_range_curr->start = mmap_start;
-                addr_range_curr->end = kernel_start_addr;
-                addr_range_curr->curr_frame = addr_range_curr->start;
-
-                addr_range_curr->next_entry = (pf_range_entry_t *)local_heap_ptr;
-                local_heap_ptr += sizeof( pf_range_entry_t );
-
-                addr_range_curr = addr_range_curr->next_entry;
-            }
-
-            // Setup the next entry after the kernel
-            addr_range_curr->start = PAGE_ALIGN_ADDR( kernel_end_addr );
-            addr_range_curr->end = mmap_end;
-            addr_range_curr->curr_frame = addr_range_curr->start;
-            addr_range_curr->next_entry = NULL;
-        }
-        else
-        {
-            // Setup the new entry
-            addr_range_curr->start = mmap_start;
-            addr_range_curr->end = mmap_end;
-            addr_range_curr->curr_frame = addr_range_curr->start;
-            addr_range_curr->next_entry = NULL;
-        }
-
-        // DEBUG: Check if the linked list of valid addresses is valid
-        if ( addr_range_curr == NULL )
-        {
-            OS_ERROR_HALT( "addr_range_curr is NULL!? i = %ld\n", i );
-        }
-    }
-
-    // Point the tail to the current entry
-    addr_range_tail = addr_range_curr;
-
-    // Move the current pointer to the head
-    addr_range_curr = addr_range_head;
-
-    // DEBUG: Check if the linked list of valid addresses is valid
-    if ( addr_range_head == NULL || addr_range_tail == NULL )
-    {
-        OS_ERROR_HALT( "addr_range_head or addr_range_tail is NULL!\n" );
-    }
-}
-
 void walk_virt_addr( void *virt_addr )
 {
     OS_INFO( "Walking virtual address: %p\n", virt_addr );
@@ -656,6 +534,137 @@ void walk_virt_addr( void *virt_addr )
     printk( "Physical Address: %p\n", READ_FRAME_ADDR( entry ) + GET_PHYS_PAGE_INDEX( virt_addr ) );
 }
 
+void addr_map_init( void *tag_ptr )
+{
+    uint64_t i;
+
+    // Check if the tag pointer is valid
+    if ( tag_ptr == NULL )
+    {
+        OS_ERROR_HALT( "Invalid multiboot2 tag pointer\n" );
+    }
+
+    // Get the MMAP entries from the multiboot2 tag
+    get_multiboot2_mmap_info( tag_ptr, &mmap_entries, &num_mmap_entries );
+
+    // Check if there are any MMAP entries
+    if ( num_mmap_entries == 0 )
+    {
+        OS_ERROR( "No memory map entries found???\n" );
+        HLT();
+    }
+
+    kernel_start_addr = &kernel_start;
+    kernel_end_addr = &kernel_end;
+
+    // DEBUG: Check if the kernel start and end addresses are valid
+    if ( kernel_start_addr >= kernel_end_addr )
+    {
+        OS_ERROR_HALT(
+            "Kernel start address (%p) is greater than or equal to the kernel end address (%p)!\n",
+            kernel_start_addr, kernel_end_addr
+        );
+    }
+    // DEBUG: Kernel start address should be 0x100000
+    if ( (uint64_t)kernel_start_addr != 0x100000 )
+    {
+        OS_ERROR_HALT( "Kernel start address (%p) is not 0x100000\n", &kernel_start_addr );
+    }
+    // DEBUG: Throw an error if the mmap entries don't start at 0x0
+    if ( mmap_entries[0].addr != 0x0 )
+    {
+        OS_ERROR_HALT( "First MMAP entries start at %p, not 0x0!\n", (void *)mmap_entries[0].addr );
+    }
+
+    // Setup the local heap
+    memset( local_heap_ptr, 0, PAGE_SIZE );
+
+    addr_range_head = (pf_range_entry_t *)local_heap_ptr;
+    addr_range_curr = addr_range_head;
+
+    void *mmap_start, *mmap_end;
+
+    // Start moving the MMAP entries to the linked list of valid addresses
+    for ( i = 0; i < num_mmap_entries; ++i )
+    {
+        // Check if the MMAP entry is available
+        if ( mmap_entries[i].type != MULTIBOOT_MEMORY_AVAILABLE )
+        {
+            continue;
+        }
+
+        // Check the kernel heap pointer first
+        if ( local_heap_ptr == NULL || local_heap_ptr > (uint8_t *)( PAGE_SIZE << 1 ) )
+        {
+            OS_ERROR_HALT( "Heap pointer is NULL!? :(\n" );
+        }
+
+        mmap_start = (void *)mmap_entries[i].addr;
+        mmap_end = (void *)( mmap_entries[i].addr + mmap_entries[i].len );
+
+        // Add a new entry to the linked list
+        addr_range_curr->next_entry = (pf_range_entry_t *)local_heap_ptr;
+        local_heap_ptr += sizeof( pf_range_entry_t );
+
+        // Move the current pointer to the next entry
+        addr_range_curr = addr_range_curr->next_entry;
+
+        // Does the kernel reside in the MMAP entry?
+        if ( mmap_start <= kernel_start_addr && kernel_end_addr <= mmap_end )
+        {
+            // If the kernel starts at the beginning of the MMAP entry, then we need can skip
+            // the entry that would have come before the kernel
+            if ( kernel_start_addr != mmap_start )
+            {
+                // Setup the first entry before the kernel
+                addr_range_curr->start = mmap_start;
+                addr_range_curr->end = kernel_start_addr;
+                addr_range_curr->curr_frame = addr_range_curr->start;
+
+                addr_range_curr->next_entry = (pf_range_entry_t *)local_heap_ptr;
+                local_heap_ptr += sizeof( pf_range_entry_t );
+
+                addr_range_curr = addr_range_curr->next_entry;
+            }
+
+            // Setup the next entry after the kernel
+            addr_range_curr->start = PAGE_ALIGN_ADDR( kernel_end_addr );
+            addr_range_curr->end = mmap_end;
+            addr_range_curr->curr_frame = addr_range_curr->start;
+            addr_range_curr->next_entry = NULL;
+        }
+        else
+        {
+            // Setup the new entry
+            addr_range_curr->start = mmap_start;
+            addr_range_curr->end = mmap_end;
+            addr_range_curr->curr_frame = addr_range_curr->start;
+            addr_range_curr->next_entry = NULL;
+        }
+
+        // DEBUG: Check if the linked list of valid addresses is valid
+        if ( addr_range_curr == NULL )
+        {
+            OS_ERROR_HALT( "addr_range_curr is NULL!? i = %ld\n", i );
+        }
+    }
+
+    // Point the tail to the current entry
+    addr_range_tail = addr_range_curr;
+
+    // Move the current pointer to the head
+    addr_range_curr = addr_range_head;
+
+    // Adjust the current frame to start on page 2
+    addr_range_curr->curr_frame = (void *)( PAGE_SIZE << 1 );
+
+    // DEBUG: Check if the linked list of valid addresses is valid
+    if ( addr_range_head == NULL || addr_range_tail == NULL )
+    {
+        OS_ERROR_HALT( "addr_range_head or addr_range_tail is NULL!\n" );
+    }
+}
+
 void page_fault_irq( int __unused irq, int err, void __unused *arg )
 {
     // Get the CR2 register
@@ -663,23 +672,23 @@ void page_fault_irq( int __unused irq, int err, void __unused *arg )
     asm volatile( "movq %%cr2, %0" : "=r"( cr2 ) );
 
     // Print the error code
-    OS_ERROR(
-        "Page Fault IRQ!\n"
-        "  CR2:  %p     \n"
-        "  Code: %X     \n"
-        "\n",
-        cr2, err
-    );
+    // OS_ERROR(
+    //    "Page Fault IRQ!\n"
+    //    "  CR2:  %p     \n"
+    //    "  Code: %X     \n"
+    //    "\n",
+    //    cr2, err
+    //);
 
     // Check if the address needs to be aligned
     if ( (uint64_t)cr2 % PAGE_SIZE != 0 )
     {
-        OS_WARN( "Address %p is not page aligned!\n", cr2 );
+        // OS_WARN( "Address %p is not page aligned!\n", cr2 );
 
         // Align the address
         cr2 = (void *)( (uint64_t)cr2 & ~( (uint64_t)PAGE_SIZE - 1 ) );
 
-        OS_WARN( "Address aligned to %p\n\n", cr2 );
+        // OS_WARN( "Address aligned to %p\n\n", cr2 );
 
         // DEBUG: Walk the virtual address
         // walk_virt_addr( cr2 );
@@ -703,7 +712,8 @@ void page_fault_irq( int __unused irq, int err, void __unused *arg )
         // Flush the page table
         flush_pg_tbl( cr2 );
 
-        OS_INFO( "PF handler allocated page frame %p for virtual address %p\n\n", phys_page, cr2 );
+        // OS_INFO( "PF handler allocated page frame %p for virtual address %p\n\n", phys_page, cr2
+        // );
     }
     else
     {
@@ -824,7 +834,7 @@ void *MMU_alloc_page( virt_addr_t region )
     return virt_page;
 }
 
-// Allocate multiple virtual pages in a specific region
+// Allocate multiple contiguous virtual pages from a specific region
 void *MMU_alloc_pages( uint64_t num_pages, virt_addr_t region )
 {
     uint64_t i;
@@ -861,13 +871,26 @@ void MMU_free_page( void *page )
     // OS_INFO( "Freed virtual page at %p\n", page );
 }
 
+// Free multiple contiguous virtual pages
+void MMU_free_pages( void *page, uint64_t num_pages )
+{
+    uint64_t i;
+
+    for ( i = 0; i < num_pages; ++i )
+    {
+        MMU_free_page( page + ( i * PAGE_SIZE ) );
+    }
+
+    // OS_INFO( "Freed %lu virtual pages starting at %p\n", num_pages, page );
+}
+
 /**
  * @brief Increments the kernels's heap by `increment` bytes. Calling with an increment of 0 can
  *        be used to find the current location of the program break.
  */
 void *kbrk( uint64_t increment )
 {
-    void *old_brk = virt_addr[VIRT_ADDR_KERNEL_HEAP];
+    void *old_brk = virt_addr[MMU_VIRT_ADDR_KERNEL_HEAP];
 
     // Check if the increment is valid
     if ( increment == 0 )
@@ -876,7 +899,7 @@ void *kbrk( uint64_t increment )
     }
 
     // Allocate the new pages
-    MMU_alloc_pages( increment / PAGE_SIZE, VIRT_ADDR_KERNEL_HEAP );
+    MMU_alloc_pages( increment / PAGE_SIZE, MMU_VIRT_ADDR_KERNEL_HEAP );
 
     return old_brk;
 }
@@ -887,7 +910,7 @@ void *kbrk( uint64_t increment )
  */
 void *sbrk( uint64_t increment )
 {
-    void *old_brk = virt_addr[VIRT_ADDR_USER_HEAP];
+    void *old_brk = virt_addr[MMU_VIRT_ADDR_USER_HEAP];
 
     // Check if the increment is valid
     if ( increment == 0 )
@@ -896,7 +919,7 @@ void *sbrk( uint64_t increment )
     }
 
     // Allocate the new pages
-    MMU_alloc_pages( increment / PAGE_SIZE, VIRT_ADDR_USER_HEAP );
+    MMU_alloc_pages( increment / PAGE_SIZE, MMU_VIRT_ADDR_USER_HEAP );
 
     return old_brk;
 }
