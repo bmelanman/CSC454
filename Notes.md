@@ -148,3 +148,25 @@ struct reg_cxt
 - Preemptive Scheduling:
     - Use a timer to trigger an interrupt, which then passes priority too another thread
     - Has the potential to create MANY race conditions.
+
+## Block Devices
+
+Ideally, an Object-Oriented programming language would be preferred to allow the use of classes and interfaces like so:
+
+```c++
+class BlockDevice
+{
+   public:
+      virtual int read_block(uint64_t blk_num, void *dst) = 0;
+      virtual int write_block(uint64_t blk_num, void *src) = 0;
+      uint32_t blk_size;
+      uint64_t tot_length;
+}
+
+class ATABlockDevice : BlockDevice
+{
+   public:
+      int read_block(uint64_t blk_num, void *dst);
+      int write_block(uint64_t blk_num, void *src);
+}
+```
