@@ -62,7 +62,9 @@ QEMU_DISPLY	:= -display none
 QEMU_SERIAL	:= -chardev pipe,id=serial,path=$(SERIAL_PIPE),logfile=$(SERIAL_LOG) -serial chardev:serial
 QEMU_DRIVE	:= -drive format=raw,file=$(TARGET_IMG)
 
-all: $(KERNEL_BIN)
+all: run
+	
+bin: $(KERNEL_BIN)
 
 img: $(TARGET_IMG)
 
@@ -150,5 +152,13 @@ clean:
 	@losetup -d /dev/loop1 2>/dev/null || true
 	@rmdir $(FS_MNT) 2>/dev/null || true
 	@rm -rf $(OBJ_DIR) $(KERNEL_BIN) $(TARGET_IMG)
+
+help:
+	@echo "Targets:"
+	@echo "  all: Calls \`run\` (default)"
+	@echo "  bin: Compiles the kernel binary"
+	@echo "  img: Calls \`bin\`, then builds the OS disk image"
+	@echo "  run: Calls \`img\`, then runs the image in a QEMU virtual environment"
+	@echo "  debug: Adds the \`-S\` flag to QEMU before calling \`run\`"
 
 .PHONY: all img run test clean clean-all count debug
