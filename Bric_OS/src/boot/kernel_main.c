@@ -33,7 +33,7 @@ void test_page( uint8_t *page )
     // uint8_t *debug_ptr = (uint8_t *)0x1;
 
     // Write a test pattern to the page
-    OS_INFO( "Writing test pattern to page...\n" );
+    // OS_INFO( "Writing test pattern to page...\n" );
 
     memset( page, (uint8_t)test_pattern, PAGE_SIZE );
 
@@ -46,7 +46,7 @@ void test_page( uint8_t *page )
         }
     }
 
-    OS_INFO( "Memory test passed!\n\n" );
+    // OS_INFO( "Memory test passed!\n\n" );
 }
 
 void test_pf( void )
@@ -103,47 +103,28 @@ void test_alloc_all( void )
 void test_virt_pages( void )
 {
     uint i, num_pages = 0x100;
+    void *page_frames[num_pages], *curr_frame;
 
-    // Test the memory manager
     OS_INFO( "Testing virtual memory...\n" );
 
+    // Allocate the pages
     OS_INFO( "Allocating %d virtual addresses...\n", num_pages );
-    void *page_frames[num_pages];
-
     for ( i = 0; i < num_pages; i++ )
     {
-        page_frames[i] = MMU_alloc_page( MMU_VIRT_ADDR_USER_HEAP );
-        OS_INFO( "Page %d: %p\n", i, page_frames[i] );
-        test_page( page_frames[i] );
-    }
+        curr_frame = MMU_alloc_page( MMU_VADDR_UHEAP );
 
-    for ( i = 0; i < num_pages; i++ )
-    {
-        OS_INFO( "Page %d: %p\n", i, page_frames[i] );
-        test_page( page_frames[i] );
+        // OS_INFO( "Page %d: %p\n", i, curr_frame );
+        test_page( curr_frame );
+
+        page_frames[i] = curr_frame;
     }
 
     // Free the pages
-    OS_INFO( "Freeing %d pages...\n", num_pages >> 1 );
-
-    for ( i = 0; i < num_pages >> 1; ++i )
+    OS_INFO( "Freeing %d pages...\n", num_pages );
+    for ( i = 0; i < num_pages; ++i )
     {
-        MMU_pf_free( page_frames[i] );
-    }
-
-    // Allocate a page after deallocating some
-    page_frames[--i] = MMU_pf_alloc();
-
-    OS_INFO( "Page %d: %p\n", i, page_frames[i] );
-
-    test_page( page_frames[i] );
-
-    // Free the remaining pages
-    OS_INFO( "Freeing %d pages...\n", num_pages >> 1 );
-
-    for ( ; i < num_pages; ++i )
-    {
-        MMU_pf_free( page_frames[i] );
+        // OS_INFO( "Freeing page %d: %p\n", i, page_frames[i] );
+        MMU_free_page( page_frames[i] );
     }
 
     OS_INFO( "Virtual memory test is complete!\n" );
@@ -159,15 +140,18 @@ int kernel_main( unsigned long magic, unsigned long addr )
 
     // parse_multiboot2( magic, addr );
 
-    // Test the memory manager
+    // printk( "\n--------------------\n\n" );
+    //// Test the memory manager
     // test_pf();
+    // printk( "\n--------------------\n\n" );
+    //// Test the virtual memory manager
     // test_virt_pages();
-
-    // Test the kernel heap
+    // printk( "\n--------------------\n\n" );
+    //// Test the kernel heap
     // test_kmalloc_all();
+    // printk( "\n--------------------\n\n" );
 
     OS_INFO( "Testing PROC_run()...\n" );
-
     // Run PROC_run() just once for debugging
     PROC_run();
 

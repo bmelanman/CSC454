@@ -13,6 +13,8 @@
 
 /* Private Includes */
 
+#include "idt.h"
+
 /* Private Defines and Macros */
 
 #define PROC_STACK_SIZE ( 0x1000U )
@@ -113,6 +115,11 @@ void PROC_init( void )
 
     main_kthread->pid = 0;
     main_kthread->status = SET_TERM_STAT( 0, PROC_LIVE );
+    main_kthread->stack = NULL;  // The main thread runs on the kernel stack
+    main_kthread->stacksize = 0;
+
+    // Set the current thread to the main thread
+    curr_kthread = main_kthread;
 
     // Initialize the thread list
     // kthread_list = (kthread *)kcalloc( 7, sizeof( kthread ) );
@@ -123,6 +130,9 @@ void PROC_init( void )
         // Use the default scheduler
         PROC_set_scheduler( NULL );
     }
+
+    // Setup the yield trap in the IDT
+    // idt_set_descriptor( 0x80, yield, ( PRESENT_FLAG | INTERRUPT_GATE_FLAG ) );
 
     // Set the setup flag
     setup = true;
