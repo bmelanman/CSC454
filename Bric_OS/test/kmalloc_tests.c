@@ -22,8 +22,8 @@
 #include "mmu_driver.h"
 #include "printk.h"
 
-#define UNITY_BEGIN() OS_INFO( "Running tests...\n" )
-#define UNITY_END()   OS_INFO( "Tests complete.\n" )
+#define UNITY_BEGIN() OS_INFO( "Running kmalloc unit tests...\n" )
+#define UNITY_END()   OS_INFO( "Unit tests complete!\n" )
 
 #define RUN_TEST( test )                        \
     OS_INFO( "Running test `%s`...\n", #test ); \
@@ -716,6 +716,16 @@ int verify_alignment( void )
     return 0;
 }
 
+int test_kfree( void )
+{
+    RUN_TEST( free_std );
+    RUN_TEST( free_nullptr );
+    RUN_TEST( free_any );
+    RUN_TEST( free_illegal );
+
+    return 0;
+}
+
 int test_kmalloc( void )
 {
     RUN_TEST( malloc_std );
@@ -760,16 +770,6 @@ int test_krealloc( void )
     RUN_TEST( realloc_overflow );
 
     RUN_TEST( realloc_usable_size );
-
-    return 0;
-}
-
-int test_kfree( void )
-{
-    RUN_TEST( free_std );
-    RUN_TEST( free_nullptr );
-    RUN_TEST( free_any );
-    RUN_TEST( free_illegal );
 
     return 0;
 }
