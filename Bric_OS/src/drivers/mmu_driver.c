@@ -28,29 +28,27 @@
 //   - Text and globals
 //   - Heap
 
-#define NUM_MEM_REGIONS ( 9U )
-
 // Virtual Memory Layout - 256 TiB Total
-#define PHYSICAL_MAP_START ( 0x000000000000U )  // Physical Map ( 1 TiB )
-#define PHYSICAL_MAP_END   ( 0x00FFFFFFFFFFU )
-#define KERNEL_HEAP_START  ( 0x010000000000U )  // Kernel Heap ( 1 TiB )
-#define KERNEL_HEAP_END    ( 0x01FFFFFFFFFFU )
-#define RESERVED_START     ( 0x020000000000U )  // Reserved ( 11 TiB )
-#define RESERVED_END       ( 0x0CFFFFFFFFFFU )
-#define IST1_END           ( 0x0D0000000000U )  // Interrupt Stack Table 1 ( 512 GiB )
-#define IST1_START         ( 0x0D7FFFFFFFFFU )
-#define IST2_END           ( 0x0D8000000000U )  // Interrupt Stack Table 2 ( 512 GiB )
-#define IST2_START         ( 0x0DFFFFFFFFFFU )
-#define IST3_END           ( 0x0E0000000000U )  // Interrupt Stack Table 3 ( 512 GiB )
-#define IST3_START         ( 0x0E7FFFFFFFFFU )
-#define IST4_END           ( 0x0E8000000000U )  // Interrupt Stack Table 4 ( 512 GiB )
-#define IST4_START         ( 0x0EFFFFFFFFFFU )
-#define KERNEL_STACK_END   ( 0x0F0000000000U )  // Kernel Stack ( 1 TiB )
-#define KERNEL_STACK_START ( 0x0FFFFFFFFFFFU )
-#define USER_STACK_END     ( 0x100000000000U )  // User Stack ( 16 TiB )
-#define USER_STACK_START   ( 0x1FFFFFFFFFFFU )
-#define USER_HEAP_START    ( 0x200000000000U )  // User Heap ( 240 TiB )
-#define USER_HEAP_END      ( 0xFFFFFFFFFFFFU )
+#define PHYS_START   ( 0x000000000000U )  // Physical Map ( 1 TiB )
+#define PHYS_END     ( 0x00FFFFFFFFFFU )
+#define KHEAP_START  ( 0x010000000000U )  // Kernel Heap ( 1 TiB )
+#define KHEAP_END    ( 0x01FFFFFFFFFFU )
+#define RES_START    ( 0x020000000000U )  // Reserved ( 11 TiB )
+#define RES_END      ( 0x0CFFFFFFFFFFU )
+#define IST1_END     ( 0x0D0000000000U )  // Interrupt Stack Table 1 ( 512 GiB )
+#define IST1_START   ( 0x0D7FFFFFFFFFU )
+#define IST2_END     ( 0x0D8000000000U )  // Interrupt Stack Table 2 ( 512 GiB )
+#define IST2_START   ( 0x0DFFFFFFFFFFU )
+#define IST3_END     ( 0x0E0000000000U )  // Interrupt Stack Table 3 ( 512 GiB )
+#define IST3_START   ( 0x0E7FFFFFFFFFU )
+#define IST4_END     ( 0x0E8000000000U )  // Interrupt Stack Table 4 ( 512 GiB )
+#define IST4_START   ( 0x0EFFFFFFFFFFU )
+#define KSTACK_END   ( 0x0F0000000000U )  // Kernel Stack ( 1 TiB )
+#define KSTACK_START ( 0x0FFFFFFFFFFFU )
+#define USTACK_END   ( 0x100000000000U )  // User Stack ( 16 TiB )
+#define USTACK_START ( 0x1FFFFFFFFFFFU )
+#define UHEAP_START  ( 0x200000000000U )  // User Heap ( 240 TiB )
+#define UHEAP_END    ( 0xFFFFFFFFFFFFU )
 
 #define ALIGN_ADDR_8_BYTES( addr ) ( (void *)ALIGN( (uint64_t)( addr ), 8U ) )
 #define PAGE_ALIGN_ADDR( addr )    ( (void *)ALIGN( (uint64_t)( addr ), PAGE_SIZE ) )
@@ -163,19 +161,18 @@ static pf_list_entry_t *pf_free_list_head = NULL;
 // Local Heap for the Linked List of Valid Physical Address Ranges
 static uint8_t *local_heap_ptr = (uint8_t *)( PAGE_SIZE );
 
-// Next available virtual address in each region
-static void *virt_addr[MMU_VIRT_ADDR_MAX] = {
-    [MMU_VIRT_ADDR_PHYSICAL_MAP] =
-        (void *)( PHYSICAL_MAP_START + PAGE_SIZE ),  // Skip the first page
-    [MMU_VIRT_ADDR_KERNEL_HEAP] = (void *)KERNEL_HEAP_START,
-    [MMU_VIRT_ADDR_RESERVED] = (void *)RESERVED_START,
-    [MMU_VIRT_ADDR_IST1] = (void *)IST1_START,
-    [MMU_VIRT_ADDR_IST2] = (void *)IST2_START,
-    [MMU_VIRT_ADDR_IST3] = (void *)IST3_START,
-    [MMU_VIRT_ADDR_IST4] = (void *)IST4_START,
-    [MMU_VIRT_ADDR_KERNEL_STACK] = (void *)KERNEL_STACK_START,
-    [MMU_VIRT_ADDR_USER_STACK] = (void *)USER_STACK_START,
-    [MMU_VIRT_ADDR_USER_HEAP] = (void *)USER_HEAP_START
+// Next available virtual address in each region (Physical region skips the first page)
+static void *virt_addr_bank[MMU_VADDR_MAX] = {
+    [MMU_VADDR_PHYS] = (void *)( PHYS_START + PAGE_SIZE ),
+    [MMU_VADDR_KHEAP] = (void *)KHEAP_START,
+    [MMU_VADDR_RES] = (void *)RES_START,
+    [MMU_VADDR_IST1] = (void *)IST1_START,
+    [MMU_VADDR_IST2] = (void *)IST2_START,
+    [MMU_VADDR_IST3] = (void *)IST3_START,
+    [MMU_VADDR_IST4] = (void *)IST4_START,
+    [MMU_VADDR_KSTACK] = (void *)KSTACK_START,
+    [MMU_VADDR_USTACK] = (void *)USTACK_START,
+    [MMU_VADDR_UHEAP] = (void *)UHEAP_START
 };
 
 /* Private Functions */
@@ -243,6 +240,9 @@ pg_dir_entry_t *get_pt_entry( void *virt_addr )
     {
         // Allocate a new PDPT entry
         alloc_table_entry( entry );
+
+        // Set the writable flag
+        entry->writable = 1;
     }
 
     // Get the PDPT entry (Level 3)
@@ -255,6 +255,9 @@ pg_dir_entry_t *get_pt_entry( void *virt_addr )
     {
         // Allocate a new PD entry
         alloc_table_entry( entry );
+
+        // Set the writable flag
+        entry->writable = 1;
     }
 
     // Get the PD entry (Level 2)
@@ -267,6 +270,9 @@ pg_dir_entry_t *get_pt_entry( void *virt_addr )
     {
         // Allocate a new PT entry
         alloc_table_entry( entry );
+
+        // Set the writable flag
+        entry->writable = 1;
     }
 
     dir_table = (pg_dir_entry_t *)READ_FRAME_ADDR( entry );
@@ -422,6 +428,7 @@ void flush_pg_tbl( void *addr )
 
 void walk_virt_addr( void *virt_addr )
 {
+    printk( "\n" );
     OS_INFO( "Walking virtual address: %p\n", virt_addr );
 
     // Get the PML4 entry (Level 4)
@@ -531,7 +538,9 @@ void walk_virt_addr( void *virt_addr )
         return;
     }
 
-    printk( "Physical Address: %p\n", READ_FRAME_ADDR( entry ) + GET_PHYS_PAGE_INDEX( virt_addr ) );
+    printk(
+        "Physical Address: %p\n\n", READ_FRAME_ADDR( entry ) + GET_PHYS_PAGE_INDEX( virt_addr )
+    );
 }
 
 void addr_map_init( void *tag_ptr )
@@ -709,18 +718,53 @@ void page_fault_irq( int __unused irq, int err, void __unused *arg )
         // Clear the alloc flag
         pt_entry->alloc = 0;
 
+        // Set the writable flag
+        pt_entry->writable = 1;
+
         // Flush the page table
         flush_pg_tbl( cr2 );
 
         // OS_INFO( "PF handler allocated page frame %p for virtual address %p\n\n", phys_page, cr2
         // );
     }
+    // else if ( pt_entry->present )
+    //{
+    //     // TODO: Check if the page is read-only and if it can be made writable
+
+    //    // Flush the entire page table
+    //    flush_pg_tbl( NULL );
+    //}
     else
     {
+        // DEBUG: Walk the virtual address
+        walk_virt_addr( cr2 );
+
         // Decode the error flags
         decode_error_flags( err );
 
-        OS_ERROR_HALT( "Unable to recover!\n" );
+        OS_ERROR_HALT(
+            "Page fault at virtual address %p cannot be recovered!\n"
+            "pt_entry->present ......... %d\n"
+            "pt_entry->writable ........ %d\n"
+            "pt_entry->user ............ %d\n"
+            "pt_entry->write_through ... %d\n"
+            "pt_entry->cache_disabled .. %d\n"
+            "pt_entry->accessed ........ %d\n"
+            "pt_entry->bit_6 ........... %d\n"
+            "pt_entry->bit_7 ........... %d\n"
+            "pt_entry->bit_8 ........... %d\n"
+            "pt_entry->dirty ........... %d\n"
+            "pt_entry->alloc ........... %d\n"
+            "pt_entry->bit_B ........... %d\n"
+            "pt_entry->frame_addr ...... %p\n"
+            "pt_entry->unused .......... %d\n"
+            "pt_entry->no_execute ...... %d\n"
+            "\n",
+            cr2, pt_entry->present, pt_entry->writable, pt_entry->user, pt_entry->write_through,
+            pt_entry->cache_disabled, pt_entry->accessed, pt_entry->bit_6, pt_entry->bit_7,
+            pt_entry->bit_8, pt_entry->dirty, pt_entry->alloc, pt_entry->bit_B,
+            READ_FRAME_ADDR( pt_entry ), pt_entry->unused, pt_entry->no_execute
+        );
     }
 }
 
@@ -806,6 +850,16 @@ void MMU_pf_free( void *pf )
     // DEBUG: Check if the page frame is aligned
     CHECK_PAGE_ALIGNED( pf );
 
+    // DEBUG: Check if the page frame is valid
+    if ( pf == NULL )
+    {
+        OS_ERROR_HALT( "Page frame is NULL!\n" );
+    }
+    else if ( (uint64_t)pf > PHYS_END )
+    {
+        OS_ERROR_HALT( "Page frame is out of bounds!\n" );
+    }
+
     // Add the page frame to the free list
     ( (pf_list_entry_t *)pf )->next = pf_free_list_head;
     pf_free_list_head = pf;
@@ -817,7 +871,7 @@ void MMU_pf_free( void *pf )
 void *MMU_alloc_page( virt_addr_t region )
 {
     // Get the next available virtual address
-    void *virt_page = virt_addr[region];
+    void *virt_page = virt_addr_bank[region];
 
     // Setup the page table entry
     pg_dir_entry_t *pt_entry = get_pt_entry( virt_page );
@@ -827,7 +881,7 @@ void *MMU_alloc_page( virt_addr_t region )
     pt_entry->present = 0;
 
     // Increment the virtual address
-    virt_addr[region] += PAGE_SIZE;
+    virt_addr_bank[region] += PAGE_SIZE;
 
     // OS_INFO( "Allocated virtual page at %p\n", virt_page );
 
@@ -838,7 +892,7 @@ void *MMU_alloc_page( virt_addr_t region )
 void *MMU_alloc_pages( uint64_t num_pages, virt_addr_t region )
 {
     uint64_t i;
-    void *virt_page = virt_addr[region];
+    void *starting_page = virt_addr_bank[region];
 
     for ( i = 0; i < num_pages; ++i )
     {
@@ -847,7 +901,7 @@ void *MMU_alloc_pages( uint64_t num_pages, virt_addr_t region )
 
     // OS_INFO( "Allocated %lu virtual pages starting at %p\n", num_pages, virt_page );
 
-    return virt_page;
+    return starting_page;
 }
 
 // Free a virtual page
@@ -865,8 +919,8 @@ void MMU_free_page( void *page )
     // Free the page frame
     MMU_pf_free( pf );
 
-    // Clear the PT entry
-    // memset( pt_entry, 0, sizeof( pg_dir_entry_t ) );
+    // Reset the PT entry
+    memset( pt_entry, 0, sizeof( pg_dir_entry_t ) );
 
     // OS_INFO( "Freed virtual page at %p\n", page );
 }
@@ -890,7 +944,7 @@ void MMU_free_pages( void *page, uint64_t num_pages )
  */
 void *kbrk( uint64_t increment )
 {
-    void *old_brk = virt_addr[MMU_VIRT_ADDR_KERNEL_HEAP];
+    void *old_brk = virt_addr_bank[MMU_VADDR_KHEAP];
 
     // Check if the increment is valid
     if ( increment == 0 )
@@ -899,7 +953,7 @@ void *kbrk( uint64_t increment )
     }
 
     // Allocate the new pages
-    MMU_alloc_pages( increment / PAGE_SIZE, MMU_VIRT_ADDR_KERNEL_HEAP );
+    MMU_alloc_pages( increment / PAGE_SIZE, MMU_VADDR_KHEAP );
 
     return old_brk;
 }
@@ -910,7 +964,7 @@ void *kbrk( uint64_t increment )
  */
 void *sbrk( uint64_t increment )
 {
-    void *old_brk = virt_addr[MMU_VIRT_ADDR_USER_HEAP];
+    void *old_brk = virt_addr_bank[MMU_VADDR_UHEAP];
 
     // Check if the increment is valid
     if ( increment == 0 )
@@ -919,7 +973,7 @@ void *sbrk( uint64_t increment )
     }
 
     // Allocate the new pages
-    MMU_alloc_pages( increment / PAGE_SIZE, MMU_VIRT_ADDR_USER_HEAP );
+    MMU_alloc_pages( increment / PAGE_SIZE, MMU_VADDR_UHEAP );
 
     return old_brk;
 }
