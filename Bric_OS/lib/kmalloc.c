@@ -396,7 +396,7 @@ void *krealloc( void *ptr, size_t size )
 
     if ( DEBUG_MSG_ENABLE )
     {
-        OS_INFO(
+        OS_INFO(  // NOLINT
             "krealloc(%p, %lu) => (ptr=%p, size=%u)\n", ptr, size, new_ptr,
             GET_HEADER( new_ptr )->size
         );
